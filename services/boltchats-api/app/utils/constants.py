@@ -27,3 +27,6 @@ class ErrorMessage(StrEnum):
     REFRESH_TOKEN_NOT_FOUND = "Refresh token not found or expired"
     RATE_LIMIT_EXCEEDED = "Rate limit exceeded"
     UNAUTHORIZED = "Not authenticated"
+    ROOM_NOT_FOUND = "Room not found"
+    OWNER_CANNOT_LEAVE = "Room owner cannot leave the room"
+    INVALID_ID = "Invalid resource ID"
