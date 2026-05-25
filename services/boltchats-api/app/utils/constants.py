@@ -3,6 +3,8 @@ from enum import StrEnum
 # Redis key prefixes
 REDIS_PREFIX_REFRESH_TOKEN: str = "refresh_token:"
 REDIS_PREFIX_RATE_LIMIT: str = "rate_limit:"
+REDIS_PREFIX_PRESENCE_ROOM: str = "presence:room:"
+REDIS_KEY_PRESENCE_ONLINE: str = "presence:online"
 
 # Service name
 SERVICE_NAME: str = "boltchats-api"

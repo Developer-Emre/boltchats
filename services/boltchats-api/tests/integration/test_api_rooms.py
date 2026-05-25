@@ -358,3 +358,123 @@ async def test_get_messages_empty_history(api) -> None:
     assert resp.status_code == 200
     assert resp.json()["items"] == []
     assert resp.json()["next_cursor"] is None
+
+
+# ---------------------------------------------------------------------------
+# Presence — room
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_get_room_presence_empty(api, redis) -> None:
+    ac, _ = api
+
+    resp = await ac.get(f"/presence/rooms/{ROOM_ID}", headers=_auth_headers())
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["room_id"] == str(ROOM_ID)
+    assert body["online_user_ids"] == []
+    assert body["count"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_get_room_presence_with_members(api, redis) -> None:
+    ac, _ = api
+    from app.utils.constants import REDIS_PREFIX_PRESENCE_ROOM
+
+    key = f"{REDIS_PREFIX_PRESENCE_ROOM}{ROOM_ID}"
+    await redis.sadd(key, USER_ID, "other_user")
+
+    resp = await ac.get(f"/presence/rooms/{ROOM_ID}", headers=_auth_headers())
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert set(body["online_user_ids"]) == {USER_ID, "other_user"}
+    assert body["count"] == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_get_room_presence_unauthenticated(api) -> None:
+    ac, _ = api
+    resp = await ac.get(f"/presence/rooms/{ROOM_ID}")
+    assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Presence — user
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_get_user_presence_online(api, redis) -> None:
+    ac, _ = api
+    from app.utils.constants import REDIS_KEY_PRESENCE_ONLINE
+
+    await redis.sadd(REDIS_KEY_PRESENCE_ONLINE, USER_ID)
+
+    resp = await ac.get(f"/presence/users/{USER_ID}", headers=_auth_headers())
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["user_id"] == USER_ID
+    assert body["is_online"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_get_user_presence_offline(api) -> None:
+    ac, _ = api
+
+    resp = await ac.get(f"/presence/users/{USER_ID}", headers=_auth_headers())
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["is_online"] is False
+
+
+# ---------------------------------------------------------------------------
+# Presence — online (global)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_get_online_users_empty(api) -> None:
+    ac, _ = api
+
+    resp = await ac.get("/presence/online", headers=_auth_headers())
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["online_user_ids"] == []
+    assert body["count"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_get_online_users_populated(api, redis) -> None:
+    ac, _ = api
+    from app.utils.constants import REDIS_KEY_PRESENCE_ONLINE
+
+    await redis.sadd(REDIS_KEY_PRESENCE_ONLINE, USER_ID, "user_x", "user_y")
+
+    resp = await ac.get("/presence/online", headers=_auth_headers())
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert set(body["online_user_ids"]) == {USER_ID, "user_x", "user_y"}
+    assert body["count"] == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_get_online_users_unauthenticated(api) -> None:
+    ac, _ = api
+    resp = await ac.get("/presence/online")
+    assert resp.status_code == 403
+

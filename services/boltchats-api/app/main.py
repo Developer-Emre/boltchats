@@ -11,7 +11,7 @@ from app.exceptions.handlers import register_exception_handlers
 from app.middlewares.cors import register_cors
 from app.middlewares.logging import LoggingMiddleware, configure_structlog
 from app.middlewares.rate_limit import RateLimitMiddleware
-from app.routers import auth, messages, rooms, users
+from app.routers import auth, messages, presence, rooms, users
 from app.utils.constants import SERVICE_NAME
 
 configure_structlog()
@@ -45,6 +45,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(rooms.router)
 app.include_router(messages.router)
+app.include_router(presence.router)
 
 
 @app.get("/health")
