@@ -1,0 +1,794 @@
+openapi: "3.1.0"
+
+info:
+  title: boltchats-api
+  version: "1.0.0"
+  description: |
+    REST API for boltchats — handles authentication, user profiles, room
+    management, message history and presence reads.
+
+    **Auth flow**
+    1. `POST /auth/register` → create account
+    2. `POST /auth/login` → receive `access_token` (30 min) + `refresh_token` (7 days)
+    3. Pass `Authorization: Bearer <access_token>` on every protected endpoint
+    4. `POST /auth/refresh` → exchange a valid refresh token for a new access token
+    5. `POST /auth/logout` → invalidate the refresh token in Redis
+
+    **Presence state** is written exclusively by `boltchats-ws` (WebSocket service).
+    This API only reads the Redis Sets populated there.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://api.boltchats.example.com
+    description: Production
+
+tags:
+  - name: health
+    description: Liveness probe
+  - name: auth
+    description: Register, login, token refresh and logout
+  - name: users
+    description: User profile management
+  - name: rooms
+    description: Chat room CRUD + membership
+  - name: messages
+    description: Message history (read-only, cursor-paginated)
+  - name: presence
+    description: Online user state (read-only from Redis)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Security
+# ─────────────────────────────────────────────────────────────────────────────
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    # ── Auth ─────────────────────────────────────────────────────────────────
+
+    RegisterRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 32
+          example: alice
+        email:
+          type: string
+          format: email
+          example: alice@example.com
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          example: s3cur3P@ssw0rd
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: alice@example.com
+        password:
+          type: string
+          example: s3cur3P@ssw0rd
+
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+          example: bearer
+
+    AccessTokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          example: bearer
+
+    # ── Users ────────────────────────────────────────────────────────────────
+
+    UserInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 665f1a2b3c4d5e6f7a8b9c0d
+        username:
+          type: string
+          example: alice
+        email:
+          type: string
+          format: email
+          example: alice@example.com
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 665f1a2b3c4d5e6f7a8b9c0d
+        username:
+          type: string
+          example: alice
+        email:
+          type: string
+          format: email
+          example: alice@example.com
+        is_active:
+          type: boolean
+          example: true
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 32
+          example: alice_v2
+
+    # ── Rooms ────────────────────────────────────────────────────────────────
+
+    CreateRoomRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          example: General
+        description:
+          type: string
+          maxLength: 256
+          default: ""
+          example: General discussion
+        is_private:
+          type: boolean
+          default: false
+
+    RoomResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 665f1a2b3c4d5e6f7a8b9c0d
+        name:
+          type: string
+          example: General
+        description:
+          type: string
+          example: General discussion
+        owner_id:
+          type: string
+          example: 665f1a2b3c4d5e6f7a8b9c00
+        member_ids:
+          type: array
+          items:
+            type: string
+          example: ["665f1a2b3c4d5e6f7a8b9c00"]
+        is_private:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+
+    RoomListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoomResponse"
+        next_cursor:
+          type: string
+          nullable: true
+          description: Pass as `?cursor=` to fetch the next page. Null when no more pages.
+          example: 665f1a2b3c4d5e6f7a8b9c0d
+
+    # ── Messages ─────────────────────────────────────────────────────────────
+
+    MessageResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 665f1a2b3c4d5e6f7a8b9c0e
+        room_id:
+          type: string
+          example: 665f1a2b3c4d5e6f7a8b9c0d
+        sender_id:
+          type: string
+          example: 665f1a2b3c4d5e6f7a8b9c00
+        content:
+          type: string
+          example: Hello everyone!
+        created_at:
+          type: string
+          format: date-time
+
+    MessageListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageResponse"
+        next_cursor:
+          type: string
+          nullable: true
+          description: Pass as `?before=` to fetch older messages. Null when exhausted.
+
+    # ── Presence ─────────────────────────────────────────────────────────────
+
+    RoomPresenceResponse:
+      type: object
+      properties:
+        room_id:
+          type: string
+          example: 665f1a2b3c4d5e6f7a8b9c0d
+        online_user_ids:
+          type: array
+          items:
+            type: string
+          example: ["665f1a2b3c4d5e6f7a8b9c00", "665f1a2b3c4d5e6f7a8b9c01"]
+        count:
+          type: integer
+          example: 2
+
+    UserPresenceResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          example: 665f1a2b3c4d5e6f7a8b9c00
+        is_online:
+          type: boolean
+          example: true
+
+    OnlineUsersResponse:
+      type: object
+      properties:
+        online_user_ids:
+          type: array
+          items:
+            type: string
+        count:
+          type: integer
+          example: 5
+
+    # ── Errors ───────────────────────────────────────────────────────────────
+
+    ErrorDetail:
+      type: object
+      properties:
+        detail:
+          type: string
+          example: Invalid or expired token
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorDetail"
+          example:
+            detail: Invalid or expired token
+
+    Forbidden:
+      description: Authenticated but not allowed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorDetail"
+          example:
+            detail: Room owner cannot leave the room
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorDetail"
+          example:
+            detail: Room not found
+
+    Conflict:
+      description: Resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorDetail"
+          example:
+            detail: User already exists
+
+    UnprocessableEntity:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorDetail"
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorDetail"
+          example:
+            detail: Rate limit exceeded
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Paths
+# ─────────────────────────────────────────────────────────────────────────────
+
+paths:
+
+  # ── Health ──────────────────────────────────────────────────────────────────
+
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      operationId: health_check
+      responses:
+        "200":
+          description: Service is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: boltchats-api
+
+  # ── Auth ─────────────────────────────────────────────────────────────────────
+
+  /auth/register:
+    post:
+      tags: [auth]
+      summary: Create a new account
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Obtain access + refresh tokens
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Obtain a new access token using a refresh token
+      operationId: refresh
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: New access token issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessTokenResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Invalidate the refresh token
+      operationId: logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "204":
+          description: Logged out — refresh token deleted from Redis
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ── Users ────────────────────────────────────────────────────────────────────
+
+  /users/me:
+    get:
+      tags: [users]
+      summary: Get own profile
+      operationId: get_me
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [users]
+      summary: Update own profile
+      operationId: update_me
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /users/{target_id}:
+    get:
+      tags: [users]
+      summary: Get a user by ID
+      operationId: get_user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: target_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 665f1a2b3c4d5e6f7a8b9c0d
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Rooms ────────────────────────────────────────────────────────────────────
+
+  /rooms:
+    post:
+      tags: [rooms]
+      summary: Create a room
+      description: The authenticated user is automatically added as the first member and owner.
+      operationId: create_room
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoomRequest"
+      responses:
+        "201":
+          description: Room created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+    get:
+      tags: [rooms]
+      summary: List rooms (cursor-paginated)
+      operationId: list_rooms
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          description: ObjectId of the last room on the previous page
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Paginated room list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /rooms/{room_id}:
+    get:
+      tags: [rooms]
+      summary: Get room by ID
+      operationId: get_room
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 665f1a2b3c4d5e6f7a8b9c0d
+      responses:
+        "200":
+          description: Room detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /rooms/{room_id}/join:
+    post:
+      tags: [rooms]
+      summary: Join a room
+      description: Idempotent — joining a room you are already a member of returns the current state without error.
+      operationId: join_room
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Room with updated member list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /rooms/{room_id}/leave:
+    delete:
+      tags: [rooms]
+      summary: Leave a room
+      description: The room **owner** cannot leave (403). Transfer ownership before leaving.
+      operationId: leave_room
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Left the room
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Messages ─────────────────────────────────────────────────────────────────
+
+  /rooms/{room_id}/messages:
+    get:
+      tags: [messages]
+      summary: Get message history for a room
+      description: |
+        Returns messages in **reverse chronological** order (newest first).
+        Use `?before=<message_id>` for cursor-based pagination to load older messages.
+      operationId: get_messages
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 665f1a2b3c4d5e6f7a8b9c0d
+        - name: before
+          in: query
+          required: false
+          description: Fetch messages older than this message ObjectId
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Message list with optional next cursor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Presence ─────────────────────────────────────────────────────────────────
+
+  /presence/rooms/{room_id}:
+    get:
+      tags: [presence]
+      summary: Get online users in a room
+      description: |
+        Reads the Redis Set `presence:room:{room_id}` populated by `boltchats-ws`.
+        Returns an empty list when no users are connected or the room is unknown.
+      operationId: get_room_presence
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 665f1a2b3c4d5e6f7a8b9c0d
+      responses:
+        "200":
+          description: Online users in the room
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomPresenceResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /presence/users/{user_id}:
+    get:
+      tags: [presence]
+      summary: Check if a specific user is online
+      description: Reads the global Redis Set `presence:online` populated by `boltchats-ws`.
+      operationId: get_user_presence
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 665f1a2b3c4d5e6f7a8b9c00
+      responses:
+        "200":
+          description: Presence status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPresenceResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /presence/online:
+    get:
+      tags: [presence]
+      summary: Get all globally online users
+      description: Reads the global Redis Set `presence:online` populated by `boltchats-ws`.
+      operationId: get_online_users
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: All online users
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnlineUsersResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
