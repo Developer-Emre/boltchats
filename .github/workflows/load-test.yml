@@ -1,0 +1,39 @@
+name: Load Test
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # Nightly at 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Target URL'
+        required: true
+        default: 'https://api-staging.boltchats.example.com'
+
+jobs:
+  k6-load-test:
+    name: Run k6 Load Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run k6 test
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: infrastructure/load-tests/api-load-test.js
+          flags: --out json=results.json
+        env:
+          TARGET_URL: ${{ inputs.target_url || 'https://api-staging.boltchats.example.com' }}
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k6-results
+          path: results.json
+
+      - name: Analyze results
+        if: always()
+        run: |
+          echo "Load test completed. Check artifacts for detailed results."

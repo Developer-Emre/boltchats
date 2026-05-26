@@ -1,0 +1,95 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: boltchats-network-policy
+  namespace: boltchats
+spec:
+  podSelector:
+    matchLabels:
+      component: backend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from frontend
+    - from:
+        - podSelector:
+            matchLabels:
+              component: frontend
+      ports:
+        - protocol: TCP
+          port: 8000
+    # Allow from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+  egress:
+    # Allow to MongoDB
+    - to:
+        - podSelector:
+            matchLabels:
+              app: mongodb
+      ports:
+        - protocol: TCP
+          port: 27017
+    # Allow to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # DNS
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: boltchats-websocket-policy
+  namespace: boltchats
+spec:
+  podSelector:
+    matchLabels:
+      component: websocket
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow WebSocket from ingress
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8001
+  egress:
+    # Allow to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # DNS
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53

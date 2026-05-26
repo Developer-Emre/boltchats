@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: boltchats-ws
+  namespace: boltchats
+  labels:
+    app: boltchats-ws
+    component: websocket
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: boltchats-ws
+  template:
+    metadata:
+      labels:
+        app: boltchats-ws
+        component: websocket
+    spec:
+      containers:
+        - name: ws
+          image: ghcr.io/developer-emre/boltchats-ws:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8001
+              name: ws
+              protocol: TCP
+          env:
+            - name: APP_NAME
+              value: "boltchats-ws"
+            - name: APP_VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: APP_VERSION
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: ENVIRONMENT
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: REDIS_URL
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: boltchats-secrets
+                  key: jwt-secret
+            - name: ALGORITHM
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: ALGORITHM
+            - name: RATE_LIMIT_CONNECTIONS_PER_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: RATE_LIMIT_CONNECTIONS_PER_USER
+            - name: RATE_LIMIT_MESSAGES_PER_SECOND
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: RATE_LIMIT_MESSAGES_PER_SECOND
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 2
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      restartPolicy: Always

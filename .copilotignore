@@ -1,0 +1,7 @@
+# .copilotignore
+node_modules/
+dist/
+*.lock
+*.log
+coverage/
+.env*

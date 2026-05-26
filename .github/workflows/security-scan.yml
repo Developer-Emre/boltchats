@@ -1,0 +1,58 @@
+name: Security Scan
+
+on:
+  pull_request:
+  schedule:
+    - cron: '0 2 * * *'  # Nightly at 02:00 UTC
+
+jobs:
+  trivy-scan:
+    name: Trivy Container Scan
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [boltchats-api, boltchats-ws, boltchats-storage, boltchats-web]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ matrix.service }}:scan services/${{ matrix.service }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ matrix.service }}:scan'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  dependency-scan:
+    name: Dependency Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Snyk for Python services
+        uses: snyk/actions/python@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --all-projects --detection-depth=4
+
+      - name: Run Snyk for Node.js
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --file=services/boltchats-web/package.json

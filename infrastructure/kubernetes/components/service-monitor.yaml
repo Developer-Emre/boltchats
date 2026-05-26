@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: boltchats
+  namespace: boltchats
+  labels:
+    app.kubernetes.io/name: boltchats
+spec:
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - boltchats-api
+          - boltchats-ws
+          - boltchats-storage
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s

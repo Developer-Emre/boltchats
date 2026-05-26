@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: boltchats
+
+bases:
+  - ../../base
+  - ../../components
+
+resources:
+  - hpa.yaml
+  - pdb.yaml
+
+images:
+  - name: ghcr.io/developer-emre/boltchats-api
+    newTag: staging-latest
+  - name: ghcr.io/developer-emre/boltchats-ws
+    newTag: staging-latest
+  - name: ghcr.io/developer-emre/boltchats-storage
+    newTag: staging-latest
+  - name: ghcr.io/developer-emre/boltchats-web
+    newTag: staging-latest
+
+configMapGenerator:
+  - name: boltchats-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=staging

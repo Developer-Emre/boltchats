@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: boltchats
+  labels:
+    name: boltchats
+    app.kubernetes.io/name: boltchats
+    app.kubernetes.io/managed-by: kustomize

@@ -1,0 +1,32 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: boltchats-api-pdb
+  namespace: boltchats
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: boltchats-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: boltchats-ws-pdb
+  namespace: boltchats
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: boltchats-ws
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: boltchats-web-pdb
+  namespace: boltchats
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: boltchats-web

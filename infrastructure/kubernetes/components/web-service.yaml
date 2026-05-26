@@ -1,16 +1,16 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: boltchats-ws
+  name: boltchats-web
   namespace: boltchats
   labels:
-    app: boltchats-ws
+    app: boltchats-web
 spec:
   type: ClusterIP
   selector:
-    app: boltchats-ws
+    app: boltchats-web
   ports:
-    - name: ws
-      port: 8001
-      targetPort: 8001
+    - name: http
+      port: 3000
+      targetPort: 3000
       protocol: TCP

@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: boltchats-storage
+  namespace: boltchats
+  labels:
+    app: boltchats-storage
+    component: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: boltchats-storage
+  template:
+    metadata:
+      labels:
+        app: boltchats-storage
+        component: worker
+    spec:
+      containers:
+        - name: storage
+          image: ghcr.io/developer-emre/boltchats-storage:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8002
+              name: http
+              protocol: TCP
+          env:
+            - name: APP_NAME
+              value: "boltchats-storage"
+            - name: APP_VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: APP_VERSION
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: ENVIRONMENT
+            - name: MONGODB_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: MONGODB_URL
+            - name: MONGODB_DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: MONGODB_DB_NAME
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: REDIS_URL
+            - name: REDIS_QUEUE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: REDIS_QUEUE_NAME
+            - name: CONSUMER_MAX_RETRIES
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: CONSUMER_MAX_RETRIES
+            - name: CONSUMER_RETRY_BASE_DELAY
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: CONSUMER_RETRY_BASE_DELAY
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 2
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+      restartPolicy: Always

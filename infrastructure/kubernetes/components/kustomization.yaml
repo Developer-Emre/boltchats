@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: boltchats
+
+resources:
+  - api-deployment.yaml
+  - api-service.yaml
+  - ws-deployment.yaml
+  - ws-service.yaml
+  - storage-deployment.yaml
+  - storage-service.yaml
+  - web-deployment.yaml
+  - web-service.yaml
+  - service-monitor.yaml
+  - network-policy.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: boltchats

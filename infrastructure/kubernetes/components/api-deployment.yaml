@@ -1,0 +1,114 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: boltchats-api
+  namespace: boltchats
+  labels:
+    app: boltchats-api
+    component: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: boltchats-api
+  template:
+    metadata:
+      labels:
+        app: boltchats-api
+        component: backend
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/developer-emre/boltchats-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+              protocol: TCP
+          env:
+            - name: APP_NAME
+              value: "boltchats-api"
+            - name: APP_VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: APP_VERSION
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: ENVIRONMENT
+            - name: MONGODB_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: MONGODB_URL
+            - name: MONGODB_DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: MONGODB_DB_NAME
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: REDIS_URL
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: boltchats-secrets
+                  key: jwt-secret
+            - name: ALGORITHM
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: ALGORITHM
+            - name: ACCESS_TOKEN_EXPIRE_MINUTES
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: ACCESS_TOKEN_EXPIRE_MINUTES
+            - name: REFRESH_TOKEN_EXPIRE_DAYS
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: REFRESH_TOKEN_EXPIRE_DAYS
+            - name: CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: CORS_ORIGINS
+            - name: RATE_LIMIT_REQUESTS
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: RATE_LIMIT_REQUESTS
+            - name: RATE_LIMIT_WINDOW_SECONDS
+              valueFrom:
+                configMapKeyRef:
+                  name: boltchats-config
+                  key: RATE_LIMIT_WINDOW_SECONDS
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 2
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      restartPolicy: Always

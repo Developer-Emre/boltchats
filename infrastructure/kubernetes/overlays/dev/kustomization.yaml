@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: boltchats
+
+bases:
+  - ../../base
+  - ../../components
+
+patches:
+  - path: patch.yaml
+
+images:
+  - name: ghcr.io/developer-emre/boltchats-api
+    newTag: dev-latest
+  - name: ghcr.io/developer-emre/boltchats-ws
+    newTag: dev-latest
+  - name: ghcr.io/developer-emre/boltchats-storage
+    newTag: dev-latest
+  - name: ghcr.io/developer-emre/boltchats-web
+    newTag: dev-latest
+
+configMapGenerator:
+  - name: boltchats-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=development

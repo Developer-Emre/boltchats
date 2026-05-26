@@ -1,0 +1,14 @@
+{
+  "name": "boltchats-load-test",
+  "version": "1.0.0",
+  "description": "k6 load tests for boltchats",
+  "scripts": {
+    "smoke": "k6 run smoke.js",
+    "stress": "k6 run stress.js",
+    "spike": "k6 run spike.js",
+    "ws": "k6 run ws-load.js"
+  },
+  "devDependencies": {
+    "@types/k6": "^0.52.0"
+  }
+}
