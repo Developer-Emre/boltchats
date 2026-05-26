@@ -1,0 +1,161 @@
+# Fluent Bit Helm values
+# Chart: https://github.com/fluent/helm-charts/tree/main/charts/fluent-bit
+# Install: helm install fluent-bit fluent/fluent-bit -n logging -f fluentbit-values.yaml
+
+# DaemonSet (runs on every node)
+kind: DaemonSet
+
+# Resources
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+# Service Account
+serviceAccount:
+  create: true
+  name: fluent-bit
+
+# RBAC
+rbac:
+  create: true
+
+# ConfigMap
+config:
+  service: |
+    [SERVICE]
+        Daemon Off
+        Flush 1
+        Log_Level info
+        Parsers_File parsers.conf
+        Parsers_File custom_parsers.conf
+        HTTP_Server On
+        HTTP_Listen 0.0.0.0
+        HTTP_Port 2020
+        Health_Check On
+
+  inputs: |
+    [INPUT]
+        Name tail
+        Path /var/log/containers/boltchats-*.log
+        Parser docker
+        Tag kube.*
+        Refresh_Interval 5
+        Mem_Buf_Limit 5MB
+        Skip_Long_Lines On
+        DB /var/log/flb_kube.db
+    
+    [INPUT]
+        Name systemd
+        Tag host.*
+        Systemd_Filter _SYSTEMD_UNIT=kubelet.service
+        Read_From_Tail On
+
+  filters: |
+    [FILTER]
+        Name kubernetes
+        Match kube.*
+        Kube_URL https://kubernetes.default.svc:443
+        Kube_CA_File /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix kube.var.log.containers.
+        Merge_Log On
+        Keep_Log Off
+        K8S-Logging.Parser On
+        K8S-Logging.Exclude On
+        Labels On
+        Annotations Off
+    
+    [FILTER]
+        Name nest
+        Match kube.*
+        Operation lift
+        Nested_under kubernetes
+        Add_prefix k8s_
+    
+    [FILTER]
+        Name modify
+        Match kube.*
+        Add cluster boltchats-dev
+        Add environment dev
+
+  outputs: |
+    [OUTPUT]
+        Name loki
+        Match kube.*
+        Host loki.monitoring.svc.cluster.local
+        Port 3100
+        Labels job=fluentbit, namespace=$k8s_namespace_name, pod=$k8s_pod_name, container=$k8s_container_name
+        Label_keys $k8s_labels
+        Auto_Kubernetes_Labels On
+    
+    [OUTPUT]
+        Name stdout
+        Match kube.*
+        Format json_lines
+
+  customParsers: |
+    [PARSER]
+        Name docker
+        Format json
+        Time_Key time
+        Time_Format %Y-%m-%dT%H:%M:%S.%LZ
+        Time_Keep On
+    
+    [PARSER]
+        Name json
+        Format json
+        Time_Key timestamp
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+
+# Tolerations (run on all nodes including control plane)
+tolerations:
+  - effect: NoSchedule
+    operator: Exists
+
+# Priority
+priorityClassName: system-node-critical
+
+# Update strategy
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+
+# Security context
+securityContext:
+  privileged: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Volume mounts
+volumeMounts:
+  - name: varlog
+    mountPath: /var/log
+    readOnly: true
+  - name: varlibdockercontainers
+    mountPath: /var/lib/docker/containers
+    readOnly: true
+  - name: etcmachineid
+    mountPath: /etc/machine-id
+    readOnly: true
+
+# Volumes
+volumes:
+  - name: varlog
+    hostPath:
+      path: /var/log
+  - name: varlibdockercontainers
+    hostPath:
+      path: /var/lib/docker/containers
+  - name: etcmachineid
+    hostPath:
+      path: /etc/machine-id
+      type: File

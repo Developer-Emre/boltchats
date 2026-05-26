@@ -1,0 +1,144 @@
+# kube-prometheus-stack Helm values
+# Chart: https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack
+# Install: helm install prometheus prometheus-community/kube-prometheus-stack -n monitoring -f prometheus-values.yaml
+
+fullnameOverride: prometheus
+
+# Prometheus Operator
+prometheusOperator:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Prometheus Server
+prometheus:
+  enabled: true
+  
+  prometheusSpec:
+    # Retention
+    retention: 15d
+    retentionSize: "10GB"
+    
+    # Resources
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+    
+    # Storage
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi
+    
+    # Service Monitor Selector
+    serviceMonitorSelector:
+      matchLabels:
+        prometheus: boltchats
+    
+    # Additional scrape configs for custom services
+    additionalScrapeConfigs:
+      - job_name: 'boltchats-api'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - boltchats
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: boltchats-api
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+      
+      - job_name: 'boltchats-ws'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - boltchats
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: boltchats-ws
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+      
+      - job_name: 'boltchats-storage'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - boltchats
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: boltchats-storage
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+
+# Grafana (deployed with kube-prometheus-stack)
+grafana:
+  enabled: false  # We deploy separately with custom config
+
+# Alertmanager
+alertmanager:
+  enabled: true
+  
+  alertmanagerSpec:
+    retention: 120h
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+    
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 5Gi
+
+# Node Exporter
+nodeExporter:
+  enabled: true
+
+# kube-state-metrics
+kubeStateMetrics:
+  enabled: true
+
+# Default rules (CPU, memory, disk alerts)
+defaultRules:
+  create: true
+  rules:
+    alertmanager: true
+    etcd: false  # Not applicable for EKS
+    kubeApiserver: true
+    kubeScheduler: false  # Managed by AWS
+    kubernetesSystem: true
+    node: true
+    prometheus: true
