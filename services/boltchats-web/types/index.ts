@@ -1,0 +1,98 @@
+// ── Domain models ────────────────────────────────────────────────────────────
+
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+}
+
+export interface AuthTokens {
+  access_token: string;
+  refresh_token: string;
+  user: User;
+}
+
+export interface Room {
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+}
+
+export interface Message {
+  id: string;
+  room_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+}
+
+// ── API error ─────────────────────────────────────────────────────────────────
+
+export interface ApiErrorShape {
+  detail: string;
+  code?: string;
+}
+
+// ── WebSocket — incoming events ───────────────────────────────────────────────
+
+export interface WsIncomingMessage {
+  type: 'message';
+  id: string;
+  room_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+}
+
+export interface WsUserJoinedEvent {
+  type: 'user_joined';
+  room_id: string;
+  user_id: string;
+}
+
+export interface WsUserLeftEvent {
+  type: 'user_left';
+  room_id: string;
+  user_id: string;
+}
+
+export interface WsErrorEvent {
+  type: 'error';
+  message: string;
+}
+
+export interface WsPongEvent {
+  type: 'pong';
+}
+
+export type WsEvent =
+  | WsIncomingMessage
+  | WsUserJoinedEvent
+  | WsUserLeftEvent
+  | WsErrorEvent
+  | WsPongEvent;
+
+// ── WebSocket — outgoing events ───────────────────────────────────────────────
+
+export interface WsSendMessage {
+  type: 'message';
+  room_id: string;
+  content: string;
+}
+
+export interface WsJoinRoom {
+  type: 'join_room';
+  room_id: string;
+}
+
+export interface WsLeaveRoom {
+  type: 'leave_room';
+  room_id: string;
+}
+
+export interface WsPing {
+  type: 'ping';
+}
+
+export type WsOutgoingEvent = WsSendMessage | WsJoinRoom | WsLeaveRoom | WsPing;
