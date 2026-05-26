@@ -1,0 +1,180 @@
+# BoltChats — Docker Compose for Local Development
+# Start all services: docker-compose up -d
+# Stop all services: docker-compose down
+# View logs: docker-compose logs -f
+
+version: '3.9'
+
+services:
+  # MongoDB
+  mongodb:
+    image: mongo:7.0
+    container_name: boltchats-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpassword
+      MONGO_INITDB_DATABASE: boltchats
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - boltchats
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7.2-alpine
+    container_name: boltchats-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - boltchats
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # API Service
+  api:
+    build:
+      context: ./services/boltchats-api
+      dockerfile: Dockerfile
+      target: development
+    container_name: boltchats-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      APP_NAME: boltchats-api
+      ENVIRONMENT: development
+      MONGODB_URL: mongodb://root:rootpassword@mongodb:27017/boltchats?authSource=admin
+      MONGODB_DB_NAME: boltchats
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: local-dev-secret-key-change-in-production
+      CORS_ORIGINS: '["http://localhost:3000"]'
+    volumes:
+      - ./services/boltchats-api/app:/app/app:ro
+    networks:
+      - boltchats
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # WebSocket Service
+  ws:
+    build:
+      context: ./services/boltchats-ws
+      dockerfile: Dockerfile
+      target: development
+    container_name: boltchats-ws
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      APP_NAME: boltchats-ws
+      ENVIRONMENT: development
+      REDIS_URL: redis://redis:6379/0
+      REDIS_QUEUE_NAME: messages:queue
+      SECRET_KEY: local-dev-secret-key-change-in-production
+      CORS_ORIGINS: '["http://localhost:3000"]'
+    volumes:
+      - ./services/boltchats-ws/app:/app/app:ro
+    networks:
+      - boltchats
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Storage Worker
+  storage:
+    build:
+      context: ./services/boltchats-storage
+      dockerfile: Dockerfile
+      target: development
+    container_name: boltchats-storage
+    restart: unless-stopped
+    environment:
+      APP_NAME: boltchats-storage
+      ENVIRONMENT: development
+      MONGODB_URL: mongodb://root:rootpassword@mongodb:27017/boltchats?authSource=admin
+      MONGODB_DB_NAME: boltchats
+      REDIS_URL: redis://redis:6379/0
+      REDIS_QUEUE_NAME: messages:queue
+    volumes:
+      - ./services/boltchats-storage/app:/app/app:ro
+    networks:
+      - boltchats
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Web Frontend
+  web:
+    build:
+      context: ./services/boltchats-web
+      dockerfile: Dockerfile
+      target: development
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+        NEXT_PUBLIC_WS_URL: ws://localhost:8001
+    container_name: boltchats-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_WS_URL: ws://localhost:8001
+    volumes:
+      - ./services/boltchats-web:/app:delegated
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - boltchats
+    depends_on:
+      - api
+      - ws
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  boltchats:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local

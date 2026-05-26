@@ -14,6 +14,19 @@ FROM base AS deps
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# ── Development ───────────────────────────────────────────────────────────────
+FROM deps AS development
+
+# Install dev dependencies
+COPY requirements-dev.txt .
+RUN pip install --no-cache-dir -r requirements-dev.txt
+
+COPY app/ ./app/
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
 # ── Production ────────────────────────────────────────────────────────────────
 FROM base AS production
 
