@@ -6,7 +6,7 @@ from fastapi import FastAPI
 
 from app.core.config import settings
 from app.core.database import close_db, connect_db
-from app.core.redis import close_redis, connect_redis
+from app.core.redis import close_redis, connect_redis, get_redis
 from app.exceptions.handlers import register_exception_handlers
 from app.middlewares.cors import register_cors
 from app.middlewares.logging import LoggingMiddleware, configure_structlog
