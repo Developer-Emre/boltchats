@@ -61,8 +61,14 @@ export const authApi = {
   logout: (): Promise<void> => apiClient.post<void>('/auth/logout', {}),
 };
 
+interface RoomListResponse {
+  items: Room[];
+  next_cursor: string | null;
+}
+
 export const roomsApi = {
-  list: (): Promise<Room[]> => apiClient.get<Room[]>('/rooms'),
+  list: (): Promise<Room[]> =>
+    apiClient.get<RoomListResponse>('/rooms').then((res) => res.items),
 };
 
 export const messagesApi = {
