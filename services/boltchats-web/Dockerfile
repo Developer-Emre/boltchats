@@ -9,6 +9,19 @@ FROM base AS deps
 COPY package.json package-lock.json ./
 RUN npm ci --prefer-offline --no-audit
 
+# ── Development ───────────────────────────────────────────────────────────────
+FROM base AS development
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+ENV NODE_ENV=development \
+    NEXT_TELEMETRY_DISABLED=1
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]
+
 # ── Builder ───────────────────────────────────────────────────────────────────
 FROM base AS builder
 

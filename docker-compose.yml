@@ -1,9 +1,7 @@
 # BoltChats — Docker Compose for Local Development
-# Start all services: docker-compose up -d
-# Stop all services: docker-compose down
-# View logs: docker-compose logs -f
-
-version: '3.9'
+# Start all services: docker compose up -d
+# Stop all services: docker compose down
+# View logs: docker compose logs -f
 
 services:
   # MongoDB

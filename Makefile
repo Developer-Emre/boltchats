@@ -7,6 +7,9 @@ YELLOW := \033[0;33m
 RED := \033[0;31m
 NC := \033[0m # No Color
 
+# Detect Docker Compose command (v1 vs v2)
+DOCKER_COMPOSE := $(shell docker compose version > /dev/null 2>&1 && echo "docker compose" || echo "docker-compose")
+
 help: ## Show this help message
 	@echo "$(BLUE)BoltChats — Local Development$(NC)"
 	@echo "════════════════════════════════════════"
