@@ -1,5 +1,5 @@
-import type React from 'react';
 'use client';
+import type React from 'react';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -9,12 +9,14 @@ import { Logo } from '@/components/ui/Logo';
 interface RoomSidebarProps {
   rooms: Room[];
   onLogout: () => void;
+  onCreateRoom: () => void;
   username: string;
 }
 
 export function RoomSidebar({
   rooms,
   onLogout,
+  onCreateRoom,
   username,
 }: RoomSidebarProps): React.JSX.Element {
   const pathname = usePathname();
@@ -31,6 +33,13 @@ export function RoomSidebar({
         <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
           Channels
         </p>
+        <button
+          onClick={onCreateRoom}
+          className="mb-1 flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-white/5 hover:text-zinc-300"
+        >
+          <span className="text-base leading-none">+</span>
+          <span>Add a channel</span>
+        </button>
 
         <div className="flex flex-col gap-0.5">
           {rooms.map((room) => {

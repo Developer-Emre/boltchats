@@ -66,9 +66,17 @@ interface RoomListResponse {
   next_cursor: string | null;
 }
 
+export interface CreateRoomPayload {
+  name: string;
+  description: string;
+  is_private: boolean;
+}
+
 export const roomsApi = {
   list: (): Promise<Room[]> =>
     apiClient.get<RoomListResponse>('/rooms').then((res) => res.items),
+  create: (payload: CreateRoomPayload): Promise<Room> =>
+    apiClient.post<Room>('/rooms', payload),
 };
 
 export const messagesApi = {
