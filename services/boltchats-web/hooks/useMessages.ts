@@ -18,10 +18,21 @@ export function useMessages(
 ): UseMessagesReturn {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { connected, send, onMessage } = useWebSocket(token);
   const joinedRef = useRef(false);
 
-  // Fetch message history on room change
+  // Keep roomId in a ref so the WS event handler never closes over a stale value
+  const roomIdRef = useRef(roomId);
+  roomIdRef.current = roomId;
+
+  const handleEvent = useCallback((event: WsEvent): void => {
+    if (event.type === 'message' && event.room_id === roomIdRef.current) {
+      setMessages((prev) => [...prev, event as Message]);
+    }
+  }, []);
+
+  const { connected, send } = useWebSocket(token, handleEvent);
+
+  // Fetch message history whenever the room changes
   useEffect((): void => {
     setIsLoading(true);
     setMessages([]);
@@ -32,7 +43,7 @@ export function useMessages(
       .finally((): void => setIsLoading(false));
   }, [roomId]);
 
-  // Join room once WS connects
+  // Join room once WS connects; reset so we re-join after a reconnect
   useEffect((): void => {
     if (connected && !joinedRef.current) {
       send({ type: 'join_room', room_id: roomId });
@@ -42,18 +53,6 @@ export function useMessages(
       joinedRef.current = false;
     }
   }, [connected, roomId, send]);
-
-  // Subscribe to incoming WS messages.
-  // `connected` in deps ensures handler is registered on the live client
-  // after the WsClient is created (clientRef was null on initial render).
-  useEffect((): (() => void) => {
-    const unsub = onMessage((event: WsEvent): void => {
-      if (event.type === 'message' && event.room_id === roomId) {
-        setMessages((prev) => [...prev, event]);
-      }
-    });
-    return unsub;
-  }, [onMessage, roomId, connected]);
 
   const sendMessage = useCallback(
     (content: string): void => {

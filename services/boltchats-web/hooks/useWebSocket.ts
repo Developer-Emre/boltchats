@@ -7,12 +7,27 @@ import type { WsEvent, WsOutgoingEvent } from '@/types';
 interface UseWebSocketReturn {
   connected: boolean;
   send: (event: WsOutgoingEvent) => void;
-  onMessage: (handler: (event: WsEvent) => void) => () => void;
 }
 
-export function useWebSocket(token: string | null): UseWebSocketReturn {
+/**
+ * Manages a single WsClient lifecycle.
+ *
+ * `onEvent` is called for every incoming WS event. Internally it is stored
+ * in a ref so the caller can pass a new closure on each render without
+ * causing the effect to re-run or the handler registration to be redone.
+ * The handler is registered exactly once when the client is created —
+ * eliminating all timing races between "client created" and "connected=true".
+ */
+export function useWebSocket(
+  token: string | null,
+  onEvent: (event: WsEvent) => void,
+): UseWebSocketReturn {
   const [connected, setConnected] = useState(false);
   const clientRef = useRef<WsClient | null>(null);
+
+  // Always-current reference — updated on every render, never stale
+  const onEventRef = useRef(onEvent);
+  onEventRef.current = onEvent;
 
   useEffect((): (() => void) | undefined => {
     if (!token) return undefined;
@@ -21,32 +36,22 @@ export function useWebSocket(token: string | null): UseWebSocketReturn {
     clientRef.current = client;
 
     const unsubStatus = client.onStatus(setConnected);
+    // Register once at creation time via the ref — no separate subscription effect needed
+    const unsubMessage = client.onMessage((event) => onEventRef.current(event));
     client.connect();
 
     return (): void => {
-      // Explicitly mark disconnected BEFORE unsubscribing the status handler.
-      // Without this, when StrictMode swaps the client, `connected` stays true
-      // (the old status handler is removed before onclose fires), so joinedRef
-      // is never reset and join_room is never re-sent on the new connection.
       setConnected(false);
       unsubStatus();
+      unsubMessage();
       client.disconnect();
       clientRef.current = null;
     };
   }, [token]);
 
-  // Stable references — use clientRef internally so deps array stays empty
   const send = useCallback((event: WsOutgoingEvent): void => {
     clientRef.current?.send(event);
   }, []);
 
-  const onMessage = useCallback(
-    (handler: (event: WsEvent) => void): (() => void) => {
-      if (!clientRef.current) return (): void => undefined;
-      return clientRef.current.onMessage(handler);
-    },
-    [],
-  );
-
-  return { connected, send, onMessage };
+  return { connected, send };
 }
