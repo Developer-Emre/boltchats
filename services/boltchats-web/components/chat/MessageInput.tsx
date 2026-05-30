@@ -1,5 +1,5 @@
-import type React from 'react';
 'use client';
+import type React from 'react';
 
 import {
   type FormEvent,
@@ -8,6 +8,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useCallback,
 } from 'react';
 
 interface MessageInputProps {
@@ -32,27 +33,27 @@ export function MessageInput({
     el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
   }, [value]);
 
-  const submit = (): void => {
-    if (!value.trim()) return;
+  const submit = useCallback((): void => {
+    if (!value.trim() || disabled) return;
     onSend(value);
     setValue('');
-  };
+  }, [value, disabled, onSend]);
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
+  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>): void => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       submit();
     }
-  };
+  }, [submit]);
 
-  const handleSubmit = (e: FormEvent): void => {
+  const handleSubmit = useCallback((e: FormEvent): void => {
     e.preventDefault();
     submit();
-  };
+  }, [submit]);
 
-  const handleChange = (e: ChangeEvent<HTMLTextAreaElement>): void => {
+  const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>): void => {
     setValue(e.target.value);
-  };
+  }, []);
 
   return (
     <form
@@ -76,7 +77,6 @@ export function MessageInput({
         ].join(' ')}
       />
 
-      {/* Send button */}
       <button
         type="submit"
         disabled={disabled || !value.trim()}
@@ -88,7 +88,6 @@ export function MessageInput({
           'disabled:opacity-40 disabled:cursor-not-allowed',
         ].join(' ')}
       >
-        {/* Arrow icon */}
         <svg
           width="14"
           height="14"
