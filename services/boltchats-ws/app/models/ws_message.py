@@ -21,3 +21,7 @@ class OutgoingChatMessage(BaseModel):
     sender_id: str
     content: str
     created_at: str
+    # Echoed from the client's outgoing event — only present when the sender
+    # included it. Recipients (other users) receive null/absent; the sender
+    # uses it to swap out its optimistic placeholder with the confirmed message.
+    client_message_id: str | None = None

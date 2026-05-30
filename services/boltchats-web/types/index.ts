@@ -43,6 +43,8 @@ export interface WsIncomingMessage {
   sender_id: string;
   content: string;
   created_at: string;
+  /** Present only on the sender's own broadcast — used to swap the optimistic placeholder. */
+  client_message_id?: string;
 }
 
 export interface WsUserJoinedEvent {
@@ -79,6 +81,7 @@ export interface WsSendMessage {
   type: 'message';
   room_id: string;
   content: string;
+  client_message_id: string;
 }
 
 export interface WsJoinRoom {

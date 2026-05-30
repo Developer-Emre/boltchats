@@ -5,10 +5,6 @@ import { messagesApi } from '@/lib/api';
 import type { Message, WsEvent } from '@/types';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
-// How long (ms) an optimistic message is eligible to be replaced by its
-// server confirmation. Covers any realistic WS round-trip.
-const OPTIMISTIC_TTL_MS = 30_000;
-
 interface UseMessagesReturn {
   messages: Message[];
   isLoading: boolean;
@@ -36,25 +32,16 @@ export function useMessages(
       // Guard against duplicate delivery (e.g. reconnect replays)
       if (prev.some((m) => m.id === event.id)) return prev;
 
-      // Replace the matching optimistic placeholder with the confirmed server
-      // message. Match on content + sender within the TTL window so we never
-      // accidentally collapse two distinct messages the user sent.
-      // findIndex returns the *first* match, which is correct: server
-      // confirmations arrive in send order, so each echo replaces its own
-      // optimistic entry and leaves later ones untouched.
-      const serverTime = new Date(event.created_at).getTime();
-      const optimisticIdx = prev.findIndex(
-        (m) =>
-          m.id.startsWith('optimistic-') &&
-          m.content === event.content &&
-          m.sender_id === event.sender_id &&
-          Math.abs(serverTime - new Date(m.created_at).getTime()) < OPTIMISTIC_TTL_MS,
-      );
-
-      if (optimisticIdx !== -1) {
-        const updated = [...prev];
-        updated[optimisticIdx] = event as Message;
-        return updated;
+      // If the server echoed our client_message_id, this is the confirmation
+      // of our own optimistic message. Swap the placeholder (whose id equals
+      // the client_message_id) with the authoritative server message.
+      if (event.client_message_id) {
+        const idx = prev.findIndex((m) => m.id === event.client_message_id);
+        if (idx !== -1) {
+          const updated = [...prev];
+          updated[idx] = event as Message;
+          return updated;
+        }
       }
 
       return [...prev, event as Message];
@@ -90,12 +77,15 @@ export function useMessages(
       const trimmed = content.trim();
       if (!trimmed) return;
 
-      // Show immediately — handleEvent will swap this out when the server
-      // echo arrives, giving the user instant feedback with no ghost messages.
+      // Use the clientMessageId as the optimistic entry's id so handleEvent
+      // can find and replace it with a single O(n) findIndex — no content
+      // comparison, no time-window heuristics.
+      const clientMessageId = crypto.randomUUID();
+
       setMessages((prev) => [
         ...prev,
         {
-          id: `optimistic-${Date.now()}`,
+          id: clientMessageId,
           room_id: roomId,
           sender_id: currentUserId,
           content: trimmed,
@@ -103,7 +93,7 @@ export function useMessages(
         },
       ]);
 
-      send({ type: 'message', room_id: roomId, content: trimmed });
+      send({ type: 'message', room_id: roomId, content: trimmed, client_message_id: clientMessageId });
     },
     [send, roomId, currentUserId],
   );

@@ -23,5 +23,8 @@ class MessageEvent(BaseEvent):
     content: str
 
 
+    client_message_id: str | None = None
+
+
 class PingEvent(BaseEvent):
     type: Literal["ping"]

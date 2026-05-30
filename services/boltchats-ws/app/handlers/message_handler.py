@@ -39,6 +39,7 @@ async def handle_message(
         sender_id=user_id,
         content=event.content,
         created_at=now.isoformat(),
+        client_message_id=event.client_message_id,
     )
     queue_msg = QueueMessage(
         room_id=event.room_id,
@@ -47,7 +48,7 @@ async def handle_message(
         created_at=now,
     )
 
-    outgoing_json = outgoing.model_dump_json()
+    outgoing_json = outgoing.model_dump_json(exclude_none=True)
     await asyncio.gather(
         broadcast_manager.publish(event.room_id, outgoing_json),
         message_queue.enqueue(queue_msg.model_dump_json()),
