@@ -16,6 +16,7 @@ export default function ChatLayout({
 }): React.JSX.Element {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [username, setUsername] = useState('anonymous');
   const router = useRouter();
   const { logout } = useAuth();
 
@@ -25,6 +26,12 @@ export default function ChatLayout({
       router.replace('/login');
     }
   }, [router]);
+
+  // Resolve username client-side only — avoids SSR/client mismatch
+  useEffect((): void => {
+    const user = getStoredUser();
+    setUsername(user?.username ?? user?.email ?? 'anonymous');
+  }, []);
 
   const fetchRooms = useCallback((): void => {
     roomsApi
@@ -45,9 +52,6 @@ export default function ChatLayout({
     },
     [router],
   );
-
-  const user = getStoredUser();
-  const username = user?.username ?? user?.email ?? 'anonymous';
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#111113]">
