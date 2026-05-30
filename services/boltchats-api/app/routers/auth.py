@@ -5,10 +5,10 @@ from app.core.database import get_database
 from app.core.redis import get_redis
 from app.schemas.auth_schema import (
     AccessTokenResponse,
+    AuthResponse,
     LoginRequest,
     RefreshRequest,
     RegisterRequest,
-    TokenResponse,
     UserInfo,
 )
 from app.services import auth_service
@@ -16,20 +16,21 @@ from app.services import auth_service
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=UserInfo, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     payload: RegisterRequest,
     db=Depends(get_database),
-) -> UserInfo:
-    return await auth_service.register(payload, db)
+    redis: Redis = Depends(get_redis),
+) -> AuthResponse:
+    return await auth_service.register(payload, db, redis)
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=AuthResponse)
 async def login(
     payload: LoginRequest,
     db=Depends(get_database),
     redis: Redis = Depends(get_redis),
-) -> TokenResponse:
+) -> AuthResponse:
     return await auth_service.login(payload, db, redis)
 
 

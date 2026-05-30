@@ -31,3 +31,12 @@ class UserInfo(BaseModel):
     id: str
     username: str
     email: str
+
+
+class AuthResponse(BaseModel):
+    """Returned by both /register and /login — includes tokens + user info."""
+
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user: UserInfo

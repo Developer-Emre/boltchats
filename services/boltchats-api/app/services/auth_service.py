@@ -18,10 +18,10 @@ from app.exceptions.http_exceptions import (
 )
 from app.schemas.auth_schema import (
     AccessTokenResponse,
+    AuthResponse,
     LoginRequest,
     RefreshRequest,
     RegisterRequest,
-    TokenResponse,
     UserInfo,
 )
 from app.utils.constants import (
@@ -34,7 +34,7 @@ from app.utils.constants import (
 logger = structlog.get_logger()
 
 
-async def register(payload: RegisterRequest, db) -> UserInfo:
+async def register(payload: RegisterRequest, db, redis: Redis) -> AuthResponse:
     try:
         existing = await db[Collection.USERS].find_one({"email": payload.email})
     except PyMongoError as exc:
@@ -56,17 +56,23 @@ async def register(payload: RegisterRequest, db) -> UserInfo:
     except PyMongoError as exc:
         raise DatabaseException("Failed to create user") from exc
 
-    await logger.ainfo(
-        "user_registered", user_id=str(result.inserted_id), email=payload.email
-    )
-    return UserInfo(
-        id=str(result.inserted_id),
-        username=payload.username,
-        email=payload.email,
+    user_id = str(result.inserted_id)
+    access_token = create_access_token(user_id)
+    refresh_token = create_refresh_token(user_id)
+
+    ttl = settings.refresh_token_expire_days * 86400
+    redis_key = f"{REDIS_PREFIX_REFRESH_TOKEN}{user_id}"
+    await redis.set(redis_key, refresh_token, ex=ttl)
+
+    await logger.ainfo("user_registered", user_id=user_id, email=payload.email)
+    return AuthResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user=UserInfo(id=user_id, username=payload.username, email=payload.email),
     )
 
 
-async def login(payload: LoginRequest, db, redis: Redis) -> TokenResponse:
+async def login(payload: LoginRequest, db, redis: Redis) -> AuthResponse:
     try:
         user = await db[Collection.USERS].find_one({"email": payload.email})
     except PyMongoError as exc:
@@ -84,7 +90,11 @@ async def login(payload: LoginRequest, db, redis: Redis) -> TokenResponse:
     await redis.set(redis_key, refresh_token, ex=ttl)
 
     await logger.ainfo("user_logged_in", user_id=user_id)
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    return AuthResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user=UserInfo(id=user_id, username=user["username"], email=user["email"]),
+    )
 
 
 async def refresh(payload: RefreshRequest, redis: Redis) -> AccessTokenResponse:
