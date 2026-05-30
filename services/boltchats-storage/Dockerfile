@@ -23,8 +23,6 @@ RUN if [ -f requirements-dev.txt ]; then pip install --no-cache-dir -r requireme
 
 COPY app/ ./app/
 
-EXPOSE 8002
-
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]
 
 # ── Production ────────────────────────────────────────────────────────────────
@@ -39,7 +37,5 @@ RUN adduser --disabled-password --gecos '' appuser && \
     chown -R appuser:appuser /app
 
 USER appuser
-
-EXPOSE 8002
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002"]

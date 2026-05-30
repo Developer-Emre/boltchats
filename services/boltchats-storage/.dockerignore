@@ -1,0 +1,35 @@
+# Git
+.git
+.gitignore
+
+# Python artifacts
+__pycache__
+**/__pycache__
+*.py[cod]
+*.pyo
+.pytest_cache
+.mypy_cache
+.ruff_cache
+htmlcov
+.coverage
+coverage.xml
+
+# Tests
+tests/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Tooling
+.venv
+venv
+.tox
+dist
+build
+*.egg-info
+
+# Docs & local config
+*.md
+*.log
