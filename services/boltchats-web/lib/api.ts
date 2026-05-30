@@ -79,9 +79,16 @@ export const roomsApi = {
     apiClient.post<Room>('/rooms', payload),
 };
 
+interface MessageListResponse {
+  items: Message[];
+  next_cursor: string | null;
+}
+
 export const messagesApi = {
   list: (roomId: string): Promise<Message[]> =>
-    apiClient.get<Message[]>(`/rooms/${roomId}/messages`),
+    apiClient
+      .get<MessageListResponse>(`/rooms/${roomId}/messages`)
+      .then((res) => res.items),
 };
 
 export default apiClient;
