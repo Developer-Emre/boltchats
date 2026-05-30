@@ -48,7 +48,7 @@ services:
     build:
       context: ./services/boltchats-api
       dockerfile: Dockerfile
-      target: development
+      target: ${TARGET:-development}
     container_name: boltchats-api
     restart: unless-stopped
     ports:
@@ -141,17 +141,17 @@ services:
     build:
       context: ./services/boltchats-web
       dockerfile: Dockerfile
-      target: development
+      target: ${TARGET:-development}
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:8000
-        NEXT_PUBLIC_WS_URL: ws://localhost:8001
+        NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_WS_URL: ${WS_URL:-ws://localhost:8001}
     container_name: boltchats-web
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
-      NEXT_PUBLIC_WS_URL: ws://localhost:8001
+      NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:8000}
+      NEXT_PUBLIC_WS_URL: ${WS_URL:-ws://localhost:8001}
     volumes:
       - ./services/boltchats-web:/app:delegated
       - /app/node_modules
