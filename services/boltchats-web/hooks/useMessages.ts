@@ -26,24 +26,20 @@ export function useMessages(
   roomIdRef.current = roomId;
 
   const handleEvent = useCallback((event: WsEvent): void => {
+    // Delivery receipt for our own optimistic message — swap placeholder id
+    // with the authoritative server id. Never goes to other room members.
+    if (event.type === 'message_confirmed') {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === event.client_message_id ? { ...m, id: event.server_id } : m)),
+      );
+      return;
+    }
+
     if (event.type !== 'message' || event.room_id !== roomIdRef.current) return;
 
     setMessages((prev) => {
       // Guard against duplicate delivery (e.g. reconnect replays)
       if (prev.some((m) => m.id === event.id)) return prev;
-
-      // If the server echoed our client_message_id, this is the confirmation
-      // of our own optimistic message. Swap the placeholder (whose id equals
-      // the client_message_id) with the authoritative server message.
-      if (event.client_message_id) {
-        const idx = prev.findIndex((m) => m.id === event.client_message_id);
-        if (idx !== -1) {
-          const updated = [...prev];
-          updated[idx] = event as Message;
-          return updated;
-        }
-      }
-
       return [...prev, event as Message];
     });
   }, []);

@@ -117,6 +117,7 @@ async def websocket_endpoint(
                         room_manager,
                         broadcast_manager,
                         message_queue,
+                        connection_manager,
                     )
                 elif event_type == EventType.JOIN_ROOM:
                     await handle_join_room(

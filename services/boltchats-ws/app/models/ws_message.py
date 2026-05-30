@@ -13,7 +13,7 @@ class QueueMessage(BaseModel):
 
 
 class OutgoingChatMessage(BaseModel):
-    """Chat message payload delivered to WebSocket clients."""
+    """Chat message broadcast to every member of the room."""
 
     type: str = "message"
     id: str
@@ -21,7 +21,16 @@ class OutgoingChatMessage(BaseModel):
     sender_id: str
     content: str
     created_at: str
-    # Echoed from the client's outgoing event — only present when the sender
-    # included it. Recipients (other users) receive null/absent; the sender
-    # uses it to swap out its optimistic placeholder with the confirmed message.
-    client_message_id: str | None = None
+
+
+class MessageConfirmed(BaseModel):
+    """Delivery receipt sent *only* to the original sender via direct WS write.
+
+    Never published to the Redis pub/sub channel — other room members never
+    see this event. The sender uses it to swap its optimistic placeholder
+    (keyed by client_message_id) with the authoritative server id.
+    """
+
+    type: str = "message_confirmed"
+    client_message_id: str
+    server_id: str

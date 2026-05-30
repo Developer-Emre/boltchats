@@ -21,6 +21,8 @@ class EventType(StrEnum):
     PONG = "pong"
     USER_JOINED = "user_joined"
     USER_LEFT = "user_left"
+    # Sent only to the message sender — never broadcast to the room
+    MESSAGE_CONFIRMED = "message_confirmed"
     ERROR = "error"
 
 

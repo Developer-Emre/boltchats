@@ -43,8 +43,14 @@ export interface WsIncomingMessage {
   sender_id: string;
   content: string;
   created_at: string;
-  /** Present only on the sender's own broadcast — used to swap the optimistic placeholder. */
-  client_message_id?: string;
+}
+
+export interface WsMessageConfirmedEvent {
+  type: 'message_confirmed';
+  /** UUID the client generated — matches the optimistic placeholder's id. */
+  client_message_id: string;
+  /** Authoritative id assigned by the server. */
+  server_id: string;
 }
 
 export interface WsUserJoinedEvent {
@@ -70,6 +76,7 @@ export interface WsPongEvent {
 
 export type WsEvent =
   | WsIncomingMessage
+  | WsMessageConfirmedEvent
   | WsUserJoinedEvent
   | WsUserLeftEvent
   | WsErrorEvent
