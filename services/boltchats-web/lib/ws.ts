@@ -1,7 +1,7 @@
 import type { WsEvent, WsOutgoingEvent } from '@/types';
 
-const WS_URL =
-  process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8001/ws';
+const WS_BASE =
+  process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8001';
 
 type WsEventHandler = (event: WsEvent) => void;
 type WsStatusHandler = (connected: boolean) => void;
@@ -18,7 +18,7 @@ export class WsClient {
   connect(): void {
     if (this.socket?.readyState === WebSocket.OPEN) return;
 
-    this.socket = new WebSocket(`${WS_URL}?token=${this.token}`);
+    this.socket = new WebSocket(`${WS_BASE}/ws?token=${this.token}`);
 
     this.socket.onopen = (): void => {
       this.emitStatus(true);

@@ -1,7 +1,7 @@
 'use client';
 
-import { use } from 'react';
-import { getToken, getStoredUser } from '@/store/auth';
+import { use, useEffect, useState } from 'react';
+import { getToken, getStoredUser, type StoredUser } from '@/store/auth';
 import { useMessages } from '@/hooks/useMessages';
 import { MessageList } from '@/components/chat/MessageList';
 import { MessageInput } from '@/components/chat/MessageInput';
@@ -28,8 +28,13 @@ function StatusDot({ connected }: { connected: boolean }): React.JSX.Element {
 
 export default function RoomPage({ params }: PageProps): React.JSX.Element {
   const { roomId } = use(params);
-  const token = getToken();
-  const user = getStoredUser();
+  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
+
+  useEffect((): void => {
+    setToken(getToken());
+    setUser(getStoredUser());
+  }, []);
 
   const { messages, isLoading, connected, sendMessage } = useMessages(
     roomId,
