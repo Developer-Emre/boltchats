@@ -24,6 +24,11 @@ export function useWebSocket(token: string | null): UseWebSocketReturn {
     client.connect();
 
     return (): void => {
+      // Explicitly mark disconnected BEFORE unsubscribing the status handler.
+      // Without this, when StrictMode swaps the client, `connected` stays true
+      // (the old status handler is removed before onclose fires), so joinedRef
+      // is never reset and join_room is never re-sent on the new connection.
+      setConnected(false);
       unsubStatus();
       client.disconnect();
       clientRef.current = null;
