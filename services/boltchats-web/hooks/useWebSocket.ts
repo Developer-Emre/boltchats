@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { WsClient } from '@/lib/ws';
 import type { WsEvent, WsOutgoingEvent } from '@/types';
 
@@ -30,14 +30,18 @@ export function useWebSocket(token: string | null): UseWebSocketReturn {
     };
   }, [token]);
 
-  const send = (event: WsOutgoingEvent): void => {
+  // Stable references — use clientRef internally so deps array stays empty
+  const send = useCallback((event: WsOutgoingEvent): void => {
     clientRef.current?.send(event);
-  };
+  }, []);
 
-  const onMessage = (handler: (event: WsEvent) => void): (() => void) => {
-    if (!clientRef.current) return (): void => undefined;
-    return clientRef.current.onMessage(handler);
-  };
+  const onMessage = useCallback(
+    (handler: (event: WsEvent) => void): (() => void) => {
+      if (!clientRef.current) return (): void => undefined;
+      return clientRef.current.onMessage(handler);
+    },
+    [],
+  );
 
   return { connected, send, onMessage };
 }

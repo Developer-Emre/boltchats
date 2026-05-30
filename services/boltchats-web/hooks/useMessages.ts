@@ -43,7 +43,9 @@ export function useMessages(
     }
   }, [connected, roomId, send]);
 
-  // Subscribe to incoming WS messages
+  // Subscribe to incoming WS messages.
+  // `connected` in deps ensures handler is registered on the live client
+  // after the WsClient is created (clientRef was null on initial render).
   useEffect((): (() => void) => {
     const unsub = onMessage((event: WsEvent): void => {
       if (event.type === 'message' && event.room_id === roomId) {
@@ -51,7 +53,7 @@ export function useMessages(
       }
     });
     return unsub;
-  }, [onMessage, roomId]);
+  }, [onMessage, roomId, connected]);
 
   const sendMessage = useCallback(
     (content: string): void => {
