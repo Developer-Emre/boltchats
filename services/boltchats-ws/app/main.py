@@ -154,6 +154,6 @@ async def websocket_endpoint(
         logger.info("ws.disconnected", user_id=user_id)
     finally:
         rooms = room_manager.leave_all(user_id)
-        connection_manager.disconnect(user_id)
+        connection_manager.disconnect(user_id, ws)
         await presence_manager.user_offline(user_id, rooms)
         logger.info("ws.cleaned_up", user_id=user_id, rooms=rooms)
