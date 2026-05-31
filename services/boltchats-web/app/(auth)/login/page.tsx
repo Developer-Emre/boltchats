@@ -2,19 +2,26 @@
 
 import Link from 'next/link';
 import { type FormEvent, useState } from 'react';
+import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { Logo } from '@/components/ui/Logo';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function LoginPage(): React.JSX.Element {
-  const { login, isLoading, error } = useAuth();
+  const { login, googleLogin, isLoading, error } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const handleSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     await login(email, password);
+  };
+
+  const handleGoogleSuccess = async (response: CredentialResponse): Promise<void> => {
+    if (response.credential) {
+      await googleLogin(response.credential);
+    }
   };
 
   return (
@@ -80,6 +87,25 @@ export default function LoginPage(): React.JSX.Element {
               Sign in
             </Button>
           </form>
+
+          {/* Divider */}
+          <div className="my-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-zinc-800" />
+            <span className="text-[11px] font-mono text-zinc-600 uppercase">or</span>
+            <div className="h-px flex-1 bg-zinc-800" />
+          </div>
+
+          {/* Google button */}
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => undefined}
+              theme="filled_black"
+              shape="rectangular"
+              size="large"
+              width="100%"
+            />
+          </div>
 
           <p className="mt-6 text-center text-xs text-zinc-700">
             No account?{' '}

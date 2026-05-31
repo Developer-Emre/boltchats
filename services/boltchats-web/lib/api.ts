@@ -126,6 +126,12 @@ export const authApi = {
       body: JSON.stringify({ username, email, password }),
     }),
 
+  googleLogin: (idToken: string): Promise<SessionResponse> =>
+    internalRequest<SessionResponse>('/api/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ id_token: idToken }),
+    }),
+
   // Reads httpOnly cookie — no body needed
   refresh: (): Promise<AccessTokenResponse> =>
     internalRequest<AccessTokenResponse>('/api/auth/refresh', { method: 'POST' }),

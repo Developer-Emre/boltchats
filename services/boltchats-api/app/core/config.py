@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    # Google OAuth
+    google_client_id: str = ""
+
     # Rate limiting
     rate_limit_requests: int = 100
     rate_limit_window_seconds: int = 60

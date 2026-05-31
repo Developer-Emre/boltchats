@@ -6,6 +6,7 @@ from app.core.redis import get_redis
 from app.schemas.auth_schema import (
     AccessTokenResponse,
     AuthResponse,
+    GoogleAuthRequest,
     LoginRequest,
     RefreshRequest,
     RegisterRequest,
@@ -14,6 +15,15 @@ from app.schemas.auth_schema import (
 from app.services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.post("/google", response_model=AuthResponse)
+async def google_login(
+    payload: GoogleAuthRequest,
+    db=Depends(get_database),
+    redis: Redis = Depends(get_redis),
+) -> AuthResponse:
+    return await auth_service.google_login(payload, db, redis)
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)

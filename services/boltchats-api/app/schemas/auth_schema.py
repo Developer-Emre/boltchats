@@ -1,6 +1,12 @@
 from pydantic import BaseModel, EmailStr, Field
 
 
+class GoogleAuthRequest(BaseModel):
+    """Google id_token received from the frontend after Google Sign-In popup."""
+
+    id_token: str
+
+
 class RegisterRequest(BaseModel):
     username: str = Field(min_length=3, max_length=32)
     email: EmailStr

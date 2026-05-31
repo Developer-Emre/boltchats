@@ -1,4 +1,7 @@
+import asyncio
+import re
 import structlog
+from functools import partial
 from jose import JWTError
 from pymongo.errors import PyMongoError
 from redis.asyncio import Redis
@@ -19,6 +22,7 @@ from app.exceptions.http_exceptions import (
 from app.schemas.auth_schema import (
     AccessTokenResponse,
     AuthResponse,
+    GoogleAuthRequest,
     LoginRequest,
     RefreshRequest,
     RegisterRequest,
@@ -32,6 +36,77 @@ from app.utils.constants import (
 )
 
 logger = structlog.get_logger()
+
+
+async def google_login(payload: GoogleAuthRequest, db, redis: Redis) -> AuthResponse:
+    """Verify a Google id_token, then find-or-create the user."""
+    from google.auth.transport import requests as google_requests
+    from google.oauth2 import id_token as google_id_token
+
+    if not settings.google_client_id:
+        raise UnauthorizedException("Google login is not configured on this server")
+
+    try:
+        # verify_oauth2_token is blocking — run in executor to avoid blocking the loop
+        verify = partial(
+            google_id_token.verify_oauth2_token,
+            payload.id_token,
+            google_requests.Request(),
+            settings.google_client_id,
+        )
+        id_info: dict = await asyncio.get_event_loop().run_in_executor(None, verify)
+    except ValueError as exc:
+        raise UnauthorizedException("Invalid Google token") from exc
+
+    email: str = id_info["email"]
+    google_sub: str = id_info["sub"]
+
+    # Derive a clean username from the Google display name or email prefix
+    raw_name: str = id_info.get("name", email.split("@")[0])
+    username: str = re.sub(r"[^a-z0-9_]", "_", raw_name.lower().replace(" ", "_"))
+
+    try:
+        user = await db[Collection.USERS].find_one({"email": email})
+    except PyMongoError as exc:
+        raise DatabaseException("Failed to query users") from exc
+
+    if user:
+        user_id = str(user["_id"])
+        # Backfill google_id on first Google login for an email-registered account
+        if not user.get("google_id"):
+            await db[Collection.USERS].update_one(
+                {"_id": user["_id"]},
+                {"$set": {"google_id": google_sub}},
+            )
+    else:
+        doc = {
+            "username": username,
+            "email": email,
+            "google_id": google_sub,
+            "hashed_password": None,
+            "is_active": True,
+        }
+        try:
+            result = await db[Collection.USERS].insert_one(doc)
+        except PyMongoError as exc:
+            raise DatabaseException("Failed to create user") from exc
+
+        user_id = str(result.inserted_id)
+        user = {"username": username, "email": email}
+
+    access_token = create_access_token(user_id)
+    refresh_token = create_refresh_token(user_id)
+
+    ttl = settings.refresh_token_expire_days * 86400
+    redis_key = f"{REDIS_PREFIX_REFRESH_TOKEN}{user_id}"
+    await redis.set(redis_key, refresh_token, ex=ttl)
+
+    await logger.ainfo("google_login", user_id=user_id, email=email)
+    return AuthResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user=UserInfo(id=user_id, username=user["username"], email=email),
+    )
 
 
 async def register(payload: RegisterRequest, db, redis: Redis) -> AuthResponse:

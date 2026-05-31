@@ -16,11 +16,11 @@ import {
 interface UseAuthReturn {
   user: StoredUser | null;
   isLoading: boolean;
-  /** True once the session has been initialised (token in memory or refresh attempted). */
   isReady: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
+  googleLogin: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -104,6 +104,25 @@ export function useAuth(): UseAuthReturn {
     [router],
   );
 
+  const googleLogin = useCallback(
+    async (idToken: string): Promise<void> => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await authApi.googleLogin(idToken);
+        setToken(data.access_token);
+        setStoredUser(data.user);
+        setUser(data.user);
+        router.push('/rooms');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Google login failed');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [router],
+  );
+
   const logout = useCallback(async (): Promise<void> => {
     await authApi.logout().catch(() => undefined);
     broadcastLogout(); // notify other open tabs before clearing local state
@@ -112,5 +131,5 @@ export function useAuth(): UseAuthReturn {
     router.push('/login');
   }, [router]);
 
-  return { user, isLoading, isReady, error, login, register, logout };
+  return { user, isLoading, isReady, error, login, register, googleLogin, logout };
 }
