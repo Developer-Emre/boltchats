@@ -7,6 +7,7 @@ import {
   clearToken,
   getStoredUser,
   getToken,
+  setRefreshToken,
   setStoredUser,
   setToken,
   type StoredUser,
@@ -40,6 +41,7 @@ export function useAuth(): UseAuthReturn {
       try {
         const data = await authApi.login(email, password);
         setToken(data.access_token);
+        setRefreshToken(data.refresh_token);
         setStoredUser(data.user);
         setUser(data.user);
         router.push('/rooms');
@@ -59,6 +61,7 @@ export function useAuth(): UseAuthReturn {
       try {
         const data = await authApi.register(username, email, password);
         setToken(data.access_token);
+        setRefreshToken(data.refresh_token);
         setStoredUser(data.user);
         setUser(data.user);
         router.push('/rooms');
@@ -72,6 +75,9 @@ export function useAuth(): UseAuthReturn {
   );
 
   const logout = useCallback((): void => {
+    authApi.logout().catch(() => {
+      // Best-effort: even if the server call fails, clear local state
+    });
     clearToken();
     setUser(null);
     router.push('/login');
