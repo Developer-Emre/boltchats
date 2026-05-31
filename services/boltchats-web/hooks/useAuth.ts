@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/api';
+import { broadcastLogout, subscribeAuthChannel } from '@/lib/auth-channel';
 import {
   clearToken,
   getStoredUser,
@@ -29,6 +30,15 @@ export function useAuth(): UseAuthReturn {
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  // Cross-tab logout sync: when another tab logs out, mirror the action here.
+  useEffect((): (() => void) => {
+    return subscribeAuthChannel((): void => {
+      clearToken();
+      setUser(null);
+      router.replace('/login');
+    });
+  }, [router]);
 
   // Session init: if the in-memory token was lost (page refresh), restore it
   // by calling /api/auth/refresh — the httpOnly cookie is sent automatically.
@@ -96,6 +106,7 @@ export function useAuth(): UseAuthReturn {
 
   const logout = useCallback(async (): Promise<void> => {
     await authApi.logout().catch(() => undefined);
+    broadcastLogout(); // notify other open tabs before clearing local state
     clearToken();
     setUser(null);
     router.push('/login');
