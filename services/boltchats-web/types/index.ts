@@ -15,6 +15,7 @@ export interface User {
   id: string;
   username: string;
   email: string;
+  is_active: boolean;
 }
 
 export interface AuthTokens {
@@ -26,8 +27,31 @@ export interface AuthTokens {
 export interface Room {
   id: string;
   name: string;
-  description?: string;
+  description: string;
+  owner_id: string;
+  member_ids: string[];
+  is_private: boolean;
   created_at: string;
+}
+
+export interface UpdateUserPayload {
+  username?: string;
+}
+
+export interface RoomPresence {
+  room_id: string;
+  online_user_ids: string[];
+  count: number;
+}
+
+export interface UserPresence {
+  user_id: string;
+  is_online: boolean;
+}
+
+export interface OnlineUsers {
+  online_user_ids: string[];
+  count: number;
 }
 
 export interface Message {

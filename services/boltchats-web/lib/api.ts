@@ -1,4 +1,14 @@
-import type { AccessTokenResponse, Message, Room, SessionResponse } from '@/types';
+import type {
+  AccessTokenResponse,
+  Message,
+  OnlineUsers,
+  Room,
+  RoomPresence,
+  SessionResponse,
+  UpdateUserPayload,
+  User,
+  UserPresence,
+} from '@/types';
 import { clearToken, getToken, setToken } from '@/store/auth';
 
 const BASE_URL =
@@ -157,8 +167,14 @@ export interface CreateRoomPayload {
 export const roomsApi = {
   list: (): Promise<Room[]> =>
     apiClient.get<RoomListResponse>('/rooms').then((res) => res.items),
+  get: (roomId: string): Promise<Room> =>
+    apiClient.get<Room>(`/rooms/${roomId}`),
   create: (payload: CreateRoomPayload): Promise<Room> =>
     apiClient.post<Room>('/rooms', payload),
+  join: (roomId: string): Promise<Room> =>
+    apiClient.post<Room>(`/rooms/${roomId}/join`, {}),
+  leave: (roomId: string): Promise<void> =>
+    apiClient.delete<void>(`/rooms/${roomId}/leave`),
 };
 
 interface MessageListResponse {
@@ -171,6 +187,24 @@ export const messagesApi = {
     apiClient
       .get<MessageListResponse>(`/rooms/${roomId}/messages`)
       .then((res) => res.items),
+};
+
+export const usersApi = {
+  getMe: (): Promise<User> =>
+    apiClient.get<User>('/users/me'),
+  updateMe: (payload: UpdateUserPayload): Promise<User> =>
+    apiClient.patch<User>('/users/me', payload),
+  getById: (userId: string): Promise<User> =>
+    apiClient.get<User>(`/users/${userId}`),
+};
+
+export const presenceApi = {
+  getRoom: (roomId: string): Promise<RoomPresence> =>
+    apiClient.get<RoomPresence>(`/presence/rooms/${roomId}`),
+  getUser: (userId: string): Promise<UserPresence> =>
+    apiClient.get<UserPresence>(`/presence/users/${userId}`),
+  getOnline: (): Promise<OnlineUsers> =>
+    apiClient.get<OnlineUsers>('/presence/online'),
 };
 
 export default apiClient;
