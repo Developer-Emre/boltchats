@@ -1,5 +1,8 @@
-const TOKEN_KEY = 'bolt_access_token';
-const REFRESH_TOKEN_KEY = 'bolt_refresh_token';
+// Access token lives in memory only — never persisted to storage.
+// On page refresh the chat layout calls /api/auth/refresh (httpOnly cookie)
+// to restore it without ever exposing the refresh token to JavaScript.
+let _accessToken: string | null = null;
+
 const USER_KEY = 'bolt_user';
 
 export interface StoredUser {
@@ -9,27 +12,26 @@ export interface StoredUser {
 }
 
 export function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem(TOKEN_KEY);
+  return _accessToken;
 }
 
 export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
+  _accessToken = token;
 }
 
 export function getRefreshToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
+  return null; // refresh token is now in an httpOnly cookie — not accessible from JS
 }
 
-export function setRefreshToken(token: string): void {
-  localStorage.setItem(REFRESH_TOKEN_KEY, token);
+export function setRefreshToken(_token: string): void {
+  // no-op: refresh token is managed exclusively by Next.js route handlers
 }
 
 export function clearToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+  _accessToken = null;
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(USER_KEY);
+  }
 }
 
 export function getStoredUser(): StoredUser | null {

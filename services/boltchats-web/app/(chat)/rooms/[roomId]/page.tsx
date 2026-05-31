@@ -10,7 +10,6 @@ interface PageProps {
   params: Promise<{ roomId: string }>;
 }
 
-// Connection status indicator
 function StatusDot({ connected }: { connected: boolean }): React.JSX.Element {
   return (
     <span className="flex items-center gap-1.5 text-xs font-mono">
@@ -39,11 +38,11 @@ export default function RoomPage({ params }: PageProps): React.JSX.Element {
   const { messages, isLoading, connected, sendMessage } = useMessages(
     roomId,
     token,
+    user?.id ?? '',
   );
 
   return (
     <div className="flex h-full flex-col">
-      {/* Room header */}
       <header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-zinc-800 px-4">
         <div className="flex items-center gap-2">
           <span className="text-zinc-600">#</span>
@@ -52,14 +51,12 @@ export default function RoomPage({ params }: PageProps): React.JSX.Element {
         <StatusDot connected={connected} />
       </header>
 
-      {/* Messages */}
       <MessageList
         messages={messages}
         currentUserId={user?.id ?? ''}
         isLoading={isLoading}
       />
 
-      {/* Input */}
       <MessageInput
         onSend={sendMessage}
         disabled={!connected}

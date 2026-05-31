@@ -7,7 +7,6 @@ import {
   clearToken,
   getStoredUser,
   getToken,
-  setRefreshToken,
   setStoredUser,
   setToken,
   type StoredUser,
@@ -16,23 +15,46 @@ import {
 interface UseAuthReturn {
   user: StoredUser | null;
   isLoading: boolean;
+  /** True once the session has been initialised (token in memory or refresh attempted). */
+  isReady: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<StoredUser | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
+  // Session init: if the in-memory token was lost (page refresh), restore it
+  // by calling /api/auth/refresh — the httpOnly cookie is sent automatically.
   useEffect((): void => {
-    const stored = getStoredUser();
-    const token = getToken();
-    if (stored && token) setUser(stored);
-  }, []);
+    if (getToken()) {
+      setUser(getStoredUser());
+      setIsReady(true);
+      return;
+    }
+
+    authApi
+      .refresh()
+      .then((data) => {
+        setToken(data.access_token);
+        const stored = getStoredUser();
+        setUser(stored);
+      })
+      .catch(() => {
+        // No valid session — middleware will redirect on the next navigation.
+        // We don't force a redirect here to avoid fighting middleware on public pages.
+        clearToken();
+      })
+      .finally(() => {
+        setIsReady(true);
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const login = useCallback(
     async (email: string, password: string): Promise<void> => {
@@ -41,7 +63,6 @@ export function useAuth(): UseAuthReturn {
       try {
         const data = await authApi.login(email, password);
         setToken(data.access_token);
-        setRefreshToken(data.refresh_token);
         setStoredUser(data.user);
         setUser(data.user);
         router.push('/rooms');
@@ -61,7 +82,6 @@ export function useAuth(): UseAuthReturn {
       try {
         const data = await authApi.register(username, email, password);
         setToken(data.access_token);
-        setRefreshToken(data.refresh_token);
         setStoredUser(data.user);
         setUser(data.user);
         router.push('/rooms');
@@ -74,14 +94,12 @@ export function useAuth(): UseAuthReturn {
     [router],
   );
 
-  const logout = useCallback((): void => {
-    authApi.logout().catch(() => {
-      // Best-effort: even if the server call fails, clear local state
-    });
+  const logout = useCallback(async (): Promise<void> => {
+    await authApi.logout().catch(() => undefined);
     clearToken();
     setUser(null);
     router.push('/login');
   }, [router]);
 
-  return { user, isLoading, error, login, register, logout };
+  return { user, isLoading, isReady, error, login, register, logout };
 }

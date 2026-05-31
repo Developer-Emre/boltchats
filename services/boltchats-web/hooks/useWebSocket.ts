@@ -12,11 +12,10 @@ interface UseWebSocketReturn {
 /**
  * Manages a single WsClient lifecycle.
  *
- * `onEvent` is called for every incoming WS event. Internally it is stored
- * in a ref so the caller can pass a new closure on each render without
- * causing the effect to re-run or the handler registration to be redone.
- * The handler is registered exactly once when the client is created —
- * eliminating all timing races between "client created" and "connected=true".
+ * `onEvent` is stored in a ref so the caller can pass a new closure on each
+ * render without causing the effect to re-run or re-register the handler.
+ * The handler is registered once when the client is created — eliminating
+ * all timing races between "client created" and "connected=true".
  */
 export function useWebSocket(
   token: string | null,
@@ -36,7 +35,6 @@ export function useWebSocket(
     clientRef.current = client;
 
     const unsubStatus = client.onStatus(setConnected);
-    // Register once at creation time via the ref — no separate subscription effect needed
     const unsubMessage = client.onMessage((event) => onEventRef.current(event));
     client.connect();
 
@@ -49,6 +47,7 @@ export function useWebSocket(
     };
   }, [token]);
 
+  // Empty deps: clientRef.current is accessed at call time, never stale
   const send = useCallback((event: WsOutgoingEvent): void => {
     clientRef.current?.send(event);
   }, []);

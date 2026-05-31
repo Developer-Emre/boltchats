@@ -2,6 +2,13 @@ export interface AccessTokenResponse {
   access_token: string;
 }
 
+/** Returned by Next.js /api/auth/* route handlers to the browser.
+ *  The refresh_token is never sent to the client — it lives in an httpOnly cookie. */
+export interface SessionResponse {
+  access_token: string;
+  user: User;
+}
+
 // ── Domain models ────────────────────────────────────────────────────────────
 
 export interface User {

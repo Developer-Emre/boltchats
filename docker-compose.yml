@@ -152,6 +152,9 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:8000}
       NEXT_PUBLIC_WS_URL: ${WS_URL:-ws://localhost:8001}
+      # Server-side only — used by Next.js route handlers to reach the API
+      # container via the internal Docker network (never exposed to the browser)
+      BACKEND_URL: ${BACKEND_URL:-http://api:8000/api/v1}
     volumes:
       - ./services/boltchats-web:/app:delegated
       - /app/node_modules
