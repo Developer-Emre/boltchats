@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { Room } from '@/types';
 import { Logo } from '@/components/ui/Logo';
+import { Avatar } from '@/components/ui/Avatar';
 
 interface RoomSidebarProps {
   rooms: Room[];
@@ -74,9 +75,7 @@ export function RoomSidebar({
       {/* User footer */}
       <div className="flex h-12 items-center justify-between border-t border-zinc-800 px-3 gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="h-5 w-5 flex-shrink-0 rounded bg-indigo-600/30 flex items-center justify-center text-[9px] font-bold text-indigo-300">
-            {username.slice(0, 1).toUpperCase()}
-          </div>
+          <Avatar username={username} size="xs" isOnline={true} />
           <span className="truncate text-xs font-mono text-zinc-500">
             {username}
           </span>
