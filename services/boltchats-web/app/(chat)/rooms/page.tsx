@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { roomsApi } from '@/lib/api';
@@ -82,14 +82,14 @@ export default function RoomsIndexPage(): React.JSX.Element {
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Fetch rooms once auth is ready
-  useCallback(() => {
+  useEffect((): void => {
     if (!isReady) return;
     roomsApi
       .list()
       .then(setRooms)
       .catch(() => toast.error('Failed to load rooms'))
       .finally(() => setIsLoaded(true));
-  }, [isReady])();
+  }, [isReady]);
 
   const handleJoined = useCallback((updated: Room): void => {
     setRooms((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));

@@ -1,9 +1,13 @@
 'use client';
 
 import type React from 'react';
+import { useEffect, useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { useRoomPresence } from '@/hooks/usePresence';
 import { useUserById } from '@/hooks/useUser';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { getToken } from '@/store/auth';
+import type { WsEvent } from '@/types';
 
 interface MemberItemProps {
   userId: string;
@@ -12,7 +16,6 @@ interface MemberItemProps {
 
 function MemberItem({ userId, isOnline }: MemberItemProps): React.JSX.Element {
   const { user } = useUserById(userId);
-
   return (
     <li className="flex items-center gap-2 px-3 py-1.5">
       <Avatar username={user?.username ?? '?'} size="xs" isOnline={isOnline} />
@@ -28,16 +31,33 @@ interface MemberListProps {
   memberIds: string[];
 }
 
-export function MemberList({ roomId, memberIds }: MemberListProps): React.JSX.Element {
+export function MemberList({ roomId, memberIds: initialMemberIds }: MemberListProps): React.JSX.Element {
   const { presence, isLoading } = useRoomPresence(roomId);
+
+  // Mirror memberIds locally so WS join/leave events update the list live
+  const [memberIds, setMemberIds] = useState<string[]>(initialMemberIds);
+  useEffect(() => setMemberIds(initialMemberIds), [initialMemberIds]);
+
+  const [token] = useState<string | null>(() => getToken());
+
+  const handleEvent = (event: WsEvent): void => {
+    if (event.type === 'user_joined' && event.room_id === roomId) {
+      setMemberIds((prev) =>
+        prev.includes(event.user_id) ? prev : [...prev, event.user_id],
+      );
+    }
+    if (event.type === 'user_left' && event.room_id === roomId) {
+      setMemberIds((prev) => prev.filter((id) => id !== event.user_id));
+    }
+  };
+
+  // Subscribe to the shared WS connection (no-op send — we only read events)
+  useWebSocket(token, handleEvent);
 
   const onlineSet = new Set(presence?.online_user_ids ?? []);
 
-  // Sort: online first, then offline
   const sorted = [...memberIds].sort((a, b) => {
-    const aOn = onlineSet.has(a) ? 0 : 1;
-    const bOn = onlineSet.has(b) ? 0 : 1;
-    return aOn - bOn;
+    return (onlineSet.has(a) ? 0 : 1) - (onlineSet.has(b) ? 0 : 1);
   });
 
   const onlineCount = isLoading ? null : (presence?.count ?? 0);
@@ -57,7 +77,6 @@ export function MemberList({ roomId, memberIds }: MemberListProps): React.JSX.El
         {sorted.map((id) => (
           <MemberItem key={id} userId={id} isOnline={onlineSet.has(id)} />
         ))}
-
         {memberIds.length === 0 && (
           <li className="px-4 py-2 text-xs text-zinc-700">No members yet</li>
         )}

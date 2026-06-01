@@ -1,4 +1,8 @@
+'use client';
+
 import type React from 'react';
+import { Avatar } from '@/components/ui/Avatar';
+import { useUserById } from '@/hooks/useUser';
 import type { Message } from '@/types';
 
 interface MessageBubbleProps {
@@ -17,28 +21,34 @@ function formatTime(iso: string): string {
   }
 }
 
+function SenderLabel({ userId }: { userId: string }): React.JSX.Element {
+  const { user } = useUserById(userId);
+  return (
+    <span className="text-[11px] font-mono text-zinc-500 px-1">
+      {user?.username ?? <span className="text-zinc-700">…</span>}
+    </span>
+  );
+}
+
 export function MessageBubble({
   message,
   isMine,
 }: MessageBubbleProps): React.JSX.Element {
+  const { user: sender } = useUserById(message.sender_id);
+  const displayName = sender?.username ?? message.sender_id.slice(0, 8);
+
   return (
     <div className={`flex gap-2 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
-      {/* Avatar dot */}
-      <div
-        className={`mt-1 h-6 w-6 flex-shrink-0 rounded flex items-center justify-center text-[10px] font-bold
-          ${isMine ? 'bg-indigo-600/30 text-indigo-300' : 'bg-zinc-700 text-zinc-400'}`}
-      >
-        {message.sender_id.slice(0, 1).toUpperCase()}
-      </div>
+      <Avatar
+        username={displayName}
+        size="xs"
+        /* no online dot in message bubbles — presence is shown in MemberList */
+      />
 
       <div
         className={`flex max-w-[68%] flex-col gap-1 ${isMine ? 'items-end' : 'items-start'}`}
       >
-        {!isMine && (
-          <span className="text-[11px] font-mono text-zinc-500 px-1">
-            {message.sender_id}
-          </span>
-        )}
+        {!isMine && <SenderLabel userId={message.sender_id} />}
 
         <div
           className={[
