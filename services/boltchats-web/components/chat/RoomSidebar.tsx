@@ -74,12 +74,12 @@ export function RoomSidebar({
 
       {/* User footer */}
       <div className="flex h-12 items-center justify-between border-t border-zinc-800 px-3 gap-2">
-        <div className="flex min-w-0 items-center gap-2">
+        <Link href="/profile" className="flex min-w-0 items-center gap-2 group">
           <Avatar username={username} size="xs" isOnline={true} />
-          <span className="truncate text-xs font-mono text-zinc-500">
+          <span className="truncate text-xs font-mono text-zinc-500 group-hover:text-zinc-300 transition-colors">
             {username}
           </span>
-        </div>
+        </Link>
 
         <button
           onClick={onLogout}

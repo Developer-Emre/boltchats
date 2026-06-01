@@ -6,6 +6,7 @@ import { roomsApi } from '@/lib/api';
 import type { Room } from '@/types';
 import { RoomSidebar } from '@/components/chat/RoomSidebar';
 import { CreateRoomModal } from '@/components/chat/CreateRoomModal';
+import { Toaster } from '@/components/ui/Toaster';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function ChatLayout({
@@ -60,6 +61,7 @@ export default function ChatLayout({
         username={user?.username ?? user?.email ?? 'anonymous'}
       />
       <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
+      <Toaster />
       {showModal && (
         <CreateRoomModal
           onClose={() => setShowModal(false)}
