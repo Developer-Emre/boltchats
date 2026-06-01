@@ -3,26 +3,14 @@
 import { use, useEffect, useState } from 'react';
 import { getToken, getStoredUser, type StoredUser } from '@/store/auth';
 import { useMessages } from '@/hooks/useMessages';
+import { useRoom } from '@/hooks/useRoom';
 import { MessageList } from '@/components/chat/MessageList';
 import { MessageInput } from '@/components/chat/MessageInput';
+import { RoomHeader } from '@/components/chat/RoomHeader';
+import { MemberList } from '@/components/chat/MemberList';
 
 interface PageProps {
   params: Promise<{ roomId: string }>;
-}
-
-function StatusDot({ connected }: { connected: boolean }): React.JSX.Element {
-  return (
-    <span className="flex items-center gap-1.5 text-xs font-mono">
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${
-          connected ? 'bg-green-400' : 'bg-zinc-600 animate-pulse'
-        }`}
-      />
-      <span className={connected ? 'text-zinc-500' : 'text-zinc-700'}>
-        {connected ? 'live' : 'connecting…'}
-      </span>
-    </span>
-  );
 }
 
 export default function RoomPage({ params }: PageProps): React.JSX.Element {
@@ -35,6 +23,7 @@ export default function RoomPage({ params }: PageProps): React.JSX.Element {
     setUser(getStoredUser());
   }, []);
 
+  const { room } = useRoom(roomId);
   const { messages, isLoading, connected, sendMessage } = useMessages(
     roomId,
     token,
@@ -42,26 +31,21 @@ export default function RoomPage({ params }: PageProps): React.JSX.Element {
   );
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-zinc-800 px-4">
-        <div className="flex items-center gap-2">
-          <span className="text-zinc-600">#</span>
-          <h1 className="text-sm font-semibold text-zinc-200">{roomId}</h1>
-        </div>
-        <StatusDot connected={connected} />
-      </header>
-
-      <MessageList
-        messages={messages}
-        currentUserId={user?.id ?? ''}
-        isLoading={isLoading}
-      />
-
-      <MessageInput
-        onSend={sendMessage}
-        disabled={!connected}
-        roomName={roomId}
-      />
+    <div className="flex h-full">
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <RoomHeader room={room} roomId={roomId} connected={connected} />
+        <MessageList
+          messages={messages}
+          currentUserId={user?.id ?? ''}
+          isLoading={isLoading}
+        />
+        <MessageInput
+          onSend={sendMessage}
+          disabled={!connected}
+          roomName={room?.name ?? roomId}
+        />
+      </div>
+      <MemberList roomId={roomId} memberIds={room?.member_ids ?? []} />
     </div>
   );
 }
