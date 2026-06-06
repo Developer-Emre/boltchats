@@ -11,6 +11,10 @@ logger = structlog.get_logger()
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
+        # Skip rate limiting for health checks and WebSocket connections
+        if request.url.path == "/health" or request.url.path.startswith("/ws"):
+            return await call_next(request)
+        
         redis = request.app.state.redis
         client_ip = request.client.host if request.client else "unknown"
         key = f"{REDIS_PREFIX_RATE_LIMIT}{client_ip}"
