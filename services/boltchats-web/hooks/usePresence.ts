@@ -1,35 +1,29 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { presenceApi } from '@/lib/api';
 import type { OnlineUsers, RoomPresence, UserPresence } from '@/types';
 
 interface UseRoomPresenceReturn {
   presence: RoomPresence | null;
   isLoading: boolean;
-  refetch: () => Promise<void>;
 }
 
-/** Polls room presence on mount. Re-fetches whenever roomId changes. */
+/** Fetches room presence on mount. Re-fetches whenever roomId changes. */
 export function useRoomPresence(roomId: string): UseRoomPresenceReturn {
   const [presence, setPresence] = useState<RoomPresence | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const refetch = useCallback(async (): Promise<void> => {
-    try {
-      const data = await presenceApi.getRoom(roomId);
-      setPresence(data);
-    } catch {
-      setPresence(null);
-    }
-  }, [roomId]);
-
   useEffect((): void => {
     setIsLoading(true);
-    refetch().finally(() => setIsLoading(false));
-  }, [roomId, refetch]);
+    presenceApi
+      .getRoom(roomId)
+      .then(setPresence)
+      .catch(() => setPresence(null))
+      .finally(() => setIsLoading(false));
+  }, [roomId]);
 
-  return { presence, isLoading, refetch };
+  return { presence, isLoading };
 }
 
 interface UseUserPresenceReturn {

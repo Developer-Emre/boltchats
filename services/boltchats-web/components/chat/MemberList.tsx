@@ -7,7 +7,7 @@ import { useRoomPresence } from '@/hooks/usePresence';
 import { useUserById } from '@/hooks/useUser';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { getToken } from '@/store/auth';
-import type { WsEvent } from '@/types';
+import type { RoomPresence, WsEvent } from '@/types';
 
 interface MemberItemProps {
   userId: string;
@@ -32,30 +32,51 @@ interface MemberListProps {
 }
 
 export function MemberList({ roomId, memberIds: initialMemberIds }: MemberListProps): React.JSX.Element {
-  const { presence, isLoading, refetch } = useRoomPresence(roomId);
+  const { presence: initialPresence, isLoading } = useRoomPresence(roomId);
 
   // Mirror memberIds locally so WS join/leave events update the list live
   const [memberIds, setMemberIds] = useState<string[]>(initialMemberIds);
   useEffect(() => setMemberIds(initialMemberIds), [initialMemberIds]);
 
+  // Track presence optimistically to avoid refetch race conditions
+  const [presence, setPresence] = useState<RoomPresence | null>(initialPresence);
+  useEffect(() => setPresence(initialPresence), [initialPresence]);
+
   const [token] = useState<string | null>(() => getToken());
 
-  // Refetch presence when user_joined/left events arrive to keep count in sync
+  // Update presence optimistically on user_joined/left events
+  // Don't refetch - just update the local state based on the event
   const handleEvent = (event: WsEvent): void => {
     if (event.type === 'user_joined' && event.room_id === roomId) {
       setMemberIds((prev) =>
         prev.includes(event.user_id) ? prev : [...prev, event.user_id],
       );
-      // Refetch presence to update online count and status
-      refetch().catch(() => {
-        // Ignore fetch errors
+      // Optimistically add user to online set
+      setPresence((prev) => {
+        if (!prev || prev.online_user_ids.includes(event.user_id)) {
+          return prev;
+        }
+        const newOnlineIds = [...prev.online_user_ids, event.user_id].sort();
+        return {
+          ...prev,
+          online_user_ids: newOnlineIds,
+          count: newOnlineIds.length,
+        };
       });
     }
     if (event.type === 'user_left' && event.room_id === roomId) {
       setMemberIds((prev) => prev.filter((id) => id !== event.user_id));
-      // Refetch presence to update online count and status
-      refetch().catch(() => {
-        // Ignore fetch errors
+      // Optimistically remove user from online set
+      setPresence((prev) => {
+        if (!prev) return prev;
+        const newOnlineIds = prev.online_user_ids
+          .filter((id) => id !== event.user_id)
+          .sort();
+        return {
+          ...prev,
+          online_user_ids: newOnlineIds,
+          count: newOnlineIds.length,
+        };
       });
     }
   };
