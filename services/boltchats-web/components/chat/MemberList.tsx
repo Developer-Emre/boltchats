@@ -32,7 +32,7 @@ interface MemberListProps {
 }
 
 export function MemberList({ roomId, memberIds: initialMemberIds }: MemberListProps): React.JSX.Element {
-  const { presence, isLoading } = useRoomPresence(roomId);
+  const { presence, isLoading, refetch } = useRoomPresence(roomId);
 
   // Mirror memberIds locally so WS join/leave events update the list live
   const [memberIds, setMemberIds] = useState<string[]>(initialMemberIds);
@@ -40,14 +40,23 @@ export function MemberList({ roomId, memberIds: initialMemberIds }: MemberListPr
 
   const [token] = useState<string | null>(() => getToken());
 
+  // Refetch presence when user_joined/left events arrive to keep count in sync
   const handleEvent = (event: WsEvent): void => {
     if (event.type === 'user_joined' && event.room_id === roomId) {
       setMemberIds((prev) =>
         prev.includes(event.user_id) ? prev : [...prev, event.user_id],
       );
+      // Refetch presence to update online count and status
+      refetch().catch(() => {
+        // Ignore fetch errors
+      });
     }
     if (event.type === 'user_left' && event.room_id === roomId) {
       setMemberIds((prev) => prev.filter((id) => id !== event.user_id));
+      // Refetch presence to update online count and status
+      refetch().catch(() => {
+        // Ignore fetch errors
+      });
     }
   };
 
