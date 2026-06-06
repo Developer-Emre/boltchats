@@ -33,7 +33,8 @@ class Settings(BaseSettings):
     google_client_id: str = ""
 
     # Rate limiting
-    rate_limit_requests: int = 100
+    # Set to high values for development; production should override via env vars
+    rate_limit_requests: int = 1000
     rate_limit_window_seconds: int = 60
 
 

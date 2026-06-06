@@ -11,8 +11,13 @@ logger = structlog.get_logger()
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
-        # Skip rate limiting for health checks and WebSocket connections
-        if request.url.path == "/health" or request.url.path.startswith("/ws"):
+        # Skip rate limiting for:
+        # - Health checks
+        # - WebSocket connections
+        # - CORS preflight requests
+        if (request.url.path == "/health" or 
+            request.url.path.startswith("/ws") or
+            request.method == "OPTIONS"):
             return await call_next(request)
         
         redis = request.app.state.redis
