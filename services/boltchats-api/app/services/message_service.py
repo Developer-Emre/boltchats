@@ -24,6 +24,7 @@ def _doc_to_message(doc: dict) -> MessageResponse:
 
 async def get_history(
     room_id: str,
+    user_id: str,
     db,
     before: str | None = None,
     limit: int = _DEFAULT_LIMIT,
@@ -37,6 +38,10 @@ async def get_history(
         raise DatabaseException("Failed to query room") from exc
 
     if not room:
+        raise NotFoundException(ErrorMessage.ROOM_NOT_FOUND)
+
+    # Verify user is a member of the room
+    if user_id not in room.get("member_ids", []):
         raise NotFoundException(ErrorMessage.ROOM_NOT_FOUND)
 
     query: dict = {"room_id": room_id}

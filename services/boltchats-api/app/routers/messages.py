@@ -13,7 +13,7 @@ async def get_messages(
     room_id: str,
     before: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=100),
-    _current_user: str = Depends(get_current_user),
+    current_user: str = Depends(get_current_user),
     db=Depends(get_database),
 ) -> MessageListResponse:
-    return await message_service.get_history(room_id, db, before=before, limit=limit)
+    return await message_service.get_history(room_id, current_user, db, before=before, limit=limit)
