@@ -29,17 +29,31 @@ class BroadcastManager:
         logger.info("broadcast_manager.started")
 
     async def _listen(self, callback: Callable[[str, str], Awaitable[None]]) -> None:
-        try:
-            async for message in self._pubsub.listen():
-                if message["type"] != "pmessage":
-                    continue
-                channel: str = message["channel"]
-                room_id = channel.removeprefix("room:")
-                await callback(room_id, message["data"])
-        except asyncio.CancelledError:
-            pass
-        except Exception:
-            logger.exception("broadcast_manager.listen_error")
+        while True:
+            try:
+                async for message in self._pubsub.listen():
+                    if message["type"] != "pmessage":
+                        continue
+                    channel: str = message["channel"]
+                    room_id = channel.removeprefix("room:")
+                    await callback(room_id, message["data"])
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                logger.exception("broadcast_manager.listen_error")
+                try:
+                    await self._pubsub.aclose()
+                except Exception:
+                    pass
+                # Recreate pubsub object
+                self._pubsub = self._redis.pubsub()
+                # Reconnect after delay
+                await asyncio.sleep(2)
+                try:
+                    await self._pubsub.psubscribe("room:*")
+                    logger.info("broadcast_manager.resubscribed")
+                except Exception:
+                    logger.exception("broadcast_manager.resubscribe_failed")
 
     async def publish(self, room_id: str, data: str) -> None:
         """Publish a message to a room's Redis Pub/Sub channel."""

@@ -41,11 +41,11 @@ register_exception_handlers(app)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(LoggingMiddleware)
 
-app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(rooms.router)
-app.include_router(messages.router)
-app.include_router(presence.router)
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(users.router, prefix="/api/v1")
+app.include_router(rooms.router, prefix="/api/v1")
+app.include_router(messages.router, prefix="/api/v1")
+app.include_router(presence.router, prefix="/api/v1")
 
 
 @app.get("/health")

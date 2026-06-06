@@ -27,7 +27,7 @@ services:
 
   # Redis
   redis:
-    image: redis:7.2-alpine
+    image: redis:latest
     container_name: boltchats-redis
     restart: unless-stopped
     ports:
@@ -143,7 +143,7 @@ services:
       dockerfile: Dockerfile
       target: ${TARGET:-development}
       args:
-        NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:8000/api/v1}
         NEXT_PUBLIC_WS_URL: ${WS_URL:-ws://localhost:8001}
         NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     container_name: boltchats-web
@@ -151,7 +151,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:8000}
+      NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:8000/api/v1}
       NEXT_PUBLIC_WS_URL: ${WS_URL:-ws://localhost:8001}
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       # Server-side only — used by Next.js route handlers to reach the API

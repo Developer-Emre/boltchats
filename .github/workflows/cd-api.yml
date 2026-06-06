@@ -87,7 +87,9 @@ jobs:
 
       - name: Deploy with Kustomize
         run: |
+          IMAGE_TAG=${{ needs.build-and-push.outputs.image-tag }}
           cd infrastructure/kubernetes/overlays/staging
+          kustomize edit set image ghcr.io/developer-emre/boltchats-api=${IMAGE_TAG}
           kubectl apply -k .
           kubectl rollout status deployment/boltchats-api -n boltchats --timeout=5m
 
@@ -113,6 +115,8 @@ jobs:
 
       - name: Deploy with Kustomize
         run: |
+          IMAGE_TAG=${{ needs.build-and-push.outputs.image-tag }}
           cd infrastructure/kubernetes/overlays/prod
+          kustomize edit set image ghcr.io/developer-emre/boltchats-api=${IMAGE_TAG}
           kubectl apply -k .
           kubectl rollout status deployment/boltchats-api -n boltchats --timeout=5m
