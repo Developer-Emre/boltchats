@@ -1,88 +1,101 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { WsClient } from '@/lib/ws';
+import { useCallback, useEffect, useRef } from 'react';
 import type { WsEvent, WsOutgoingEvent } from '@/types';
+import { WsClient } from '@/lib/ws';
 
 interface UseWebSocketReturn {
   connected: boolean;
   send: (event: WsOutgoingEvent) => void;
 }
 
+// Module-level singleton — shared across all useWebSocket instances
+let globalWsClient: WsClient | null = null;
+let globalRefCount = 0;
+
 /**
- * Manages a single WsClient lifecycle.
+ * Hook to use the global singleton WebSocket client.
+ * Multiple components can call this — they all share the same WsClient instance.
+ *
+ * Reference counting ensures the client stays alive as long as at least
+ * one component is mounted that uses it.
  *
  * `onEvent` is stored in a ref so the caller can pass a new closure on each
- * render without causing the effect to re-run or re-register the handler.
- * The handler is registered once when the client is created — eliminating
- * all timing races between "client created" and "connected=true".
+ * render without causing re-subscriptions.
  */
 export function useWebSocket(
   token: string | null,
   onEvent: (event: WsEvent) => void,
 ): UseWebSocketReturn {
-  const [connected, setConnected] = useState(false);
-  const clientRef = useRef<WsClient | null>(null);
-
-  // Always-current reference — updated on every render, never stale
+  const connectedRef = useRef(false);
   const onEventRef = useRef(onEvent);
+  const unsubscribersRef = useRef<Array<() => void>>([]);
+
   onEventRef.current = onEvent;
 
-  // Initialize client once on mount, keep alive across token changes
-  useEffect(() => {
-    console.log('[useWebSocket] component mounted');
-    return () => {
-      console.log('[useWebSocket] component unmounting, cleanup');
-      if (clientRef.current) {
-        clientRef.current.disconnect();
-        clientRef.current = null;
-      }
-      setConnected(false);
-    };
-  }, []);
-
-  // Reconnect when token changes (avoids disconnect loop on intermediate null)
   useEffect(() => {
     if (!token) {
-      console.log('[useWebSocket] no token yet');
+      console.log('[useWebSocket] no token, skipping');
       return;
     }
 
-    // If client already exists with same token, do nothing
-    if (clientRef.current) {
-      const existingToken = clientRef.current.getToken();
-      if (existingToken === token) {
-        console.log('[useWebSocket] token unchanged, client ready');
-        return;
+    console.log('[useWebSocket] subscribing', {
+      hasGlobalClient: !!globalWsClient,
+      tokenMatch: globalWsClient?.getToken() === token,
+    });
+
+    // Create global client if it doesn't exist or token changed
+    if (!globalWsClient || globalWsClient.getToken() !== token) {
+      console.log('[useWebSocket] creating new global client (token mismatch or missing)');
+      if (globalWsClient) {
+        globalWsClient.disconnect();
       }
-      console.log('[useWebSocket] token changed, reconnecting...');
-      clientRef.current.disconnect();
+      globalWsClient = new WsClient(token);
+      globalWsClient.connect();
     }
 
-    console.log('[useWebSocket] creating and connecting...');
-    const client = new WsClient(token);
-    clientRef.current = client;
+    // Increment ref count
+    globalRefCount += 1;
+    console.log('[useWebSocket] ref count:', globalRefCount);
 
-    const unsubStatus = client.onStatus((status) => {
+    // Subscribe to events
+    const unsubStatus = globalWsClient.onStatus((status) => {
       console.log('[useWebSocket] status:', status);
-      setConnected(status);
+      connectedRef.current = status;
     });
-    const unsubMessage = client.onMessage((event) => {
+
+    const unsubMessage = globalWsClient.onMessage((event) => {
       console.log('[useWebSocket] received event:', event.type);
       onEventRef.current(event);
     });
-    client.connect();
 
+    unsubscribersRef.current = [unsubStatus, unsubMessage];
+
+    // Cleanup on unmount or token change
     return (): void => {
-      unsubStatus();
-      unsubMessage();
+      console.log('[useWebSocket] unsubscribing');
+
+      // Unsubscribe from events
+      unsubscribersRef.current.forEach((unsub) => unsub());
+      unsubscribersRef.current = [];
+
+      // Decrement ref count
+      globalRefCount -= 1;
+      console.log('[useWebSocket] ref count:', globalRefCount);
+
+      // Disconnect global client if no more subscribers
+      if (globalRefCount === 0 && globalWsClient) {
+        console.log('[useWebSocket] no more subscribers, disconnecting global client');
+        globalWsClient.disconnect();
+        globalWsClient = null;
+      }
     };
   }, [token]);
 
-  // Empty deps: clientRef.current is accessed at call time, never stale
+  // Empty deps: read connectedRef.current at call time (never stale)
   const send = useCallback((event: WsOutgoingEvent): void => {
-    clientRef.current?.send(event);
+    globalWsClient?.send(event);
   }, []);
 
-  return { connected, send };
+  return { connected: connectedRef.current, send };
 }
