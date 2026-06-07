@@ -29,16 +29,27 @@ export function useWebSocket(
   onEventRef.current = onEvent;
 
   useEffect((): (() => void) | undefined => {
-    if (!token) return undefined;
+    if (!token) {
+      console.log('[useWebSocket] no token, skipping');
+      return undefined;
+    }
 
+    console.log('[useWebSocket] creating and connecting...');
     const client = new WsClient(token);
     clientRef.current = client;
 
-    const unsubStatus = client.onStatus(setConnected);
-    const unsubMessage = client.onMessage((event) => onEventRef.current(event));
+    const unsubStatus = client.onStatus((status) => {
+      console.log('[useWebSocket] status:', status);
+      setConnected(status);
+    });
+    const unsubMessage = client.onMessage((event) => {
+      console.log('[useWebSocket] received event:', event.type);
+      onEventRef.current(event);
+    });
     client.connect();
 
     return (): void => {
+      console.log('[useWebSocket] cleanup: disconnecting...');
       setConnected(false);
       unsubStatus();
       unsubMessage();

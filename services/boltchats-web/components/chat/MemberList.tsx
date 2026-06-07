@@ -40,7 +40,10 @@ export function MemberList({ roomId, memberIds: initialMemberIds }: MemberListPr
 
   // Track presence optimistically to avoid refetch race conditions
   const [presence, setPresence] = useState<RoomPresence | null>(initialPresence);
-  useEffect(() => setPresence(initialPresence), [initialPresence]);
+  useEffect(() => {
+    console.log('[MemberList] Presence loaded from API:', initialPresence?.online_user_ids, 'count:', initialPresence?.count);
+    setPresence(initialPresence);
+  }, [initialPresence]);
 
   const [token] = useState<string | null>(() => getToken());
 
@@ -48,15 +51,18 @@ export function MemberList({ roomId, memberIds: initialMemberIds }: MemberListPr
   // Don't refetch - just update the local state based on the event
   const handleEvent = (event: WsEvent): void => {
     if (event.type === 'user_joined' && event.room_id === roomId) {
+      console.log('[MemberList] user_joined event:', event.user_id);
       setMemberIds((prev) =>
         prev.includes(event.user_id) ? prev : [...prev, event.user_id],
       );
       // Optimistically add user to online set
       setPresence((prev) => {
         if (!prev || prev.online_user_ids.includes(event.user_id)) {
+          console.log('[MemberList] user already online:', event.user_id);
           return prev;
         }
         const newOnlineIds = [...prev.online_user_ids, event.user_id].sort();
+        console.log('[MemberList] updating presence: added', event.user_id, 'new count:', newOnlineIds.length);
         return {
           ...prev,
           online_user_ids: newOnlineIds,
@@ -65,13 +71,18 @@ export function MemberList({ roomId, memberIds: initialMemberIds }: MemberListPr
       });
     }
     if (event.type === 'user_left' && event.room_id === roomId) {
+      console.log('[MemberList] user_left event:', event.user_id);
       setMemberIds((prev) => prev.filter((id) => id !== event.user_id));
       // Optimistically remove user from online set
       setPresence((prev) => {
-        if (!prev) return prev;
+        if (!prev) {
+          console.log('[MemberList] no presence state, ignoring left event');
+          return prev;
+        }
         const newOnlineIds = prev.online_user_ids
           .filter((id) => id !== event.user_id)
           .sort();
+        console.log('[MemberList] updating presence: removed', event.user_id, 'new count:', newOnlineIds.length);
         return {
           ...prev,
           online_user_ids: newOnlineIds,
