@@ -28,10 +28,35 @@ export function useWebSocket(
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
 
-  useEffect((): (() => void) | undefined => {
+  // Initialize client once on mount, keep alive across token changes
+  useEffect(() => {
+    console.log('[useWebSocket] component mounted');
+    return () => {
+      console.log('[useWebSocket] component unmounting, cleanup');
+      if (clientRef.current) {
+        clientRef.current.disconnect();
+        clientRef.current = null;
+      }
+      setConnected(false);
+    };
+  }, []);
+
+  // Reconnect when token changes (avoids disconnect loop on intermediate null)
+  useEffect(() => {
     if (!token) {
-      console.log('[useWebSocket] no token, skipping');
-      return undefined;
+      console.log('[useWebSocket] no token yet');
+      return;
+    }
+
+    // If client already exists with same token, do nothing
+    if (clientRef.current) {
+      const existingToken = clientRef.current.getToken();
+      if (existingToken === token) {
+        console.log('[useWebSocket] token unchanged, client ready');
+        return;
+      }
+      console.log('[useWebSocket] token changed, reconnecting...');
+      clientRef.current.disconnect();
     }
 
     console.log('[useWebSocket] creating and connecting...');
@@ -49,12 +74,8 @@ export function useWebSocket(
     client.connect();
 
     return (): void => {
-      console.log('[useWebSocket] cleanup: disconnecting...');
-      setConnected(false);
       unsubStatus();
       unsubMessage();
-      client.disconnect();
-      clientRef.current = null;
     };
   }, [token]);
 

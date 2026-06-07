@@ -15,6 +15,10 @@ export class WsClient {
 
   constructor(private readonly token: string) {}
 
+  getToken(): string {
+    return this.token;
+  }
+
   connect(): void {
     if (this.socket?.readyState === WebSocket.OPEN) return;
 
