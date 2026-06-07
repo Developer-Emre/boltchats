@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { useRoomPresence } from '@/hooks/usePresence';
 import { useUserById } from '@/hooks/useUser';
@@ -38,11 +38,17 @@ export function MemberList({ roomId, memberIds: initialMemberIds }: MemberListPr
   const [memberIds, setMemberIds] = useState<string[]>(initialMemberIds);
   useEffect(() => setMemberIds(initialMemberIds), [initialMemberIds]);
 
-  // Track presence optimistically to avoid refetch race conditions
-  const [presence, setPresence] = useState<RoomPresence | null>(initialPresence);
+  // Initialize presence once from API, then trust WS events for updates
+  const [presence, setPresence] = useState<RoomPresence | null>(null);
+  const initializedRef = useRef(false);
+
+  // Set initial presence once on first API load; then let WS events update it
   useEffect(() => {
-    console.log('[MemberList] Presence loaded from API:', initialPresence?.online_user_ids, 'count:', initialPresence?.count);
-    setPresence(initialPresence);
+    if (!initializedRef.current && initialPresence) {
+      console.log('[MemberList] Presence initialized from API:', initialPresence.online_user_ids, 'count:', initialPresence.count);
+      setPresence(initialPresence);
+      initializedRef.current = true;
+    }
   }, [initialPresence]);
 
   const [token] = useState<string | null>(() => getToken());
