@@ -53,7 +53,7 @@ async def get_history(
         docs = (
             await db[Collection.MESSAGES]
             .find(query)
-            .sort("_id", -1)
+            .sort("_id", 1)
             .limit(limit + 1)
             .to_list(limit + 1)
         )
