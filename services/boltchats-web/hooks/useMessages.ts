@@ -8,8 +8,11 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 interface UseMessagesReturn {
   messages: Message[];
   isLoading: boolean;
+  isLoadingMore: boolean;
+  hasMore: boolean;
   connected: boolean;
   sendMessage: (content: string) => void;
+  loadOlderMessages: () => void;
 }
 
 export function useMessages(
@@ -19,6 +22,9 @@ export function useMessages(
 ): UseMessagesReturn {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const joinedRef = useRef(false);
 
   // Keep roomId in a ref so the WS event handler never closes over a stale value
@@ -50,11 +56,23 @@ export function useMessages(
   useEffect((): void => {
     setIsLoading(true);
     setMessages([]);
-    messagesApi
-      .list(roomId)
-      .then((msgs: Message[]): void => setMessages(msgs))
-      .catch((): void => setMessages([]))
-      .finally((): void => setIsLoading(false));
+    setNextCursor(null);
+    setHasMore(false);
+    
+    (async (): Promise<void> => {
+      try {
+        const response = await (messagesApi as any).listWithCursor(roomId);
+        setMessages(response.items);
+        setNextCursor(response.next_cursor);
+        setHasMore(response.next_cursor !== null);
+      } catch {
+        setMessages([]);
+        setNextCursor(null);
+        setHasMore(false);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   }, [roomId]);
 
   // Join room once WS connects; reset on disconnect so we re-join after reconnect
@@ -68,14 +86,29 @@ export function useMessages(
     }
   }, [connected, roomId, send]);
 
+  const loadOlderMessages = useCallback((): void => {
+    if (isLoadingMore || !hasMore || !nextCursor) return;
+
+    setIsLoadingMore(true);
+    (async (): Promise<void> => {
+      try {
+        const response = await (messagesApi as any).listWithCursor(roomId, nextCursor);
+        setMessages((prev) => [...response.items, ...prev]);
+        setNextCursor(response.next_cursor);
+        setHasMore(response.next_cursor !== null);
+      } catch {
+        // Silently fail — user can retry
+      } finally {
+        setIsLoadingMore(false);
+      }
+    })();
+  }, [roomId, isLoadingMore, hasMore, nextCursor]);
+
   const sendMessage = useCallback(
     (content: string): void => {
       const trimmed = content.trim();
       if (!trimmed) return;
 
-      // Use the clientMessageId as the optimistic entry's id so handleEvent
-      // can find and replace it with a single O(n) findIndex — no content
-      // comparison, no time-window heuristics.
       const clientMessageId = crypto.randomUUID();
 
       setMessages((prev) => [
@@ -94,5 +127,5 @@ export function useMessages(
     [send, roomId, currentUserId],
   );
 
-  return { messages, isLoading, connected, sendMessage };
+  return { messages, isLoading, isLoadingMore, hasMore, connected, sendMessage, loadOlderMessages };
 }

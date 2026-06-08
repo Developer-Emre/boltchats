@@ -25,7 +25,7 @@ export default function RoomPage({ params }: PageProps): React.JSX.Element {
   }, []);
 
   const { room, join, leave, error: roomError } = useRoom(roomId);
-  const { messages, isLoading, connected, sendMessage } = useMessages(
+  const { messages, isLoading, isLoadingMore, hasMore, connected, sendMessage, loadOlderMessages } = useMessages(
     roomId,
     token,
     user?.id ?? '',
@@ -92,6 +92,9 @@ export default function RoomPage({ params }: PageProps): React.JSX.Element {
               messages={messages}
               currentUserId={user?.id ?? ''}
               isLoading={isLoading}
+              isLoadingMore={isLoadingMore}
+              hasMore={hasMore}
+              onLoadOlder={loadOlderMessages}
             />
             <div className="relative">
               {isMember && !isOwner && (

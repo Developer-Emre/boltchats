@@ -197,6 +197,11 @@ export const messagesApi = {
     apiClient
       .get<MessageListResponse>(`/rooms/${roomId}/messages`)
       .then((res) => res.items),
+  
+  listWithCursor: (roomId: string, before?: string): Promise<MessageListResponse> =>
+    apiClient.get<MessageListResponse>(
+      `/rooms/${roomId}/messages${before ? `?before=${before}` : ''}`
+    ),
 };
 
 export const usersApi = {
