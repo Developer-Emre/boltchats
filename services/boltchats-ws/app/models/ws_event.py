@@ -26,5 +26,19 @@ class MessageEvent(BaseEvent):
     client_message_id: str | None = None
 
 
+class MessageEditedEvent(BaseEvent):
+    type: Literal["message_edited"]
+    room_id: str
+    message_id: str
+    content: str
+    edited_at: str
+
+
+class MessageDeletedEvent(BaseEvent):
+    type: Literal["message_deleted"]
+    room_id: str
+    message_id: str
+
+
 class PingEvent(BaseEvent):
     type: Literal["ping"]

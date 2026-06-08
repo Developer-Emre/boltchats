@@ -34,3 +34,22 @@ class MessageConfirmed(BaseModel):
     type: str = "message_confirmed"
     client_message_id: str
     server_id: str
+
+
+class MessageEditedBroadcast(BaseModel):
+    """Broadcast to all room members when a message is edited."""
+
+    type: str = "message_edited"
+    room_id: str
+    message_id: str
+    content: str
+    edited_at: str
+
+
+class MessageDeletedBroadcast(BaseModel):
+    """Broadcast to all room members when a message is deleted."""
+
+    type: str = "message_deleted"
+    room_id: str
+    message_id: str
+    deleted_at: str

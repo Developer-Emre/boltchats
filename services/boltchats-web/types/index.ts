@@ -156,8 +156,23 @@ export interface WsLeaveRoom {
   room_id: string;
 }
 
+export interface WsSendMessageEdited {
+  type: 'message_edited';
+  room_id: string;
+  message_id: string;
+  content: string;
+  edited_at: string;
+}
+
+export interface WsSendMessageDeleted {
+  type: 'message_deleted';
+  room_id: string;
+  message_id: string;
+  deleted_at: string;
+}
+
 export interface WsPing {
   type: 'ping';
 }
 
-export type WsOutgoingEvent = WsSendMessage | WsJoinRoom | WsLeaveRoom | WsPing;
+export type WsOutgoingEvent = WsSendMessage | WsJoinRoom | WsLeaveRoom | WsSendMessageEdited | WsSendMessageDeleted | WsPing;

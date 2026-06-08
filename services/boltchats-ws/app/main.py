@@ -10,6 +10,7 @@ from app.constants.ws_codes import EventType, SERVICE_NAME
 from app.core.config import get_settings
 from app.core.redis import close_redis, connect_redis, get_redis
 from app.handlers.message_handler import handle_message
+from app.handlers.message_edit_delete_handler import handle_message_edited, handle_message_deleted
 from app.handlers.ping_handler import handle_ping
 from app.handlers.room_handler import handle_join_room, handle_leave_room
 from app.managers.broadcast_manager import BroadcastManager
@@ -18,7 +19,7 @@ from app.managers.presence_manager import PresenceManager
 from app.managers.room_manager import RoomManager
 from app.middlewares.auth_websocket import authenticate_ws
 from app.middlewares.rate_limit_ws import check_message_rate_limit
-from app.models.ws_event import JoinRoomEvent, LeaveRoomEvent, MessageEvent
+from app.models.ws_event import JoinRoomEvent, LeaveRoomEvent, MessageEvent, MessageEditedEvent, MessageDeletedEvent
 from app.utils.message_queue import MessageQueue
 
 logger = structlog.get_logger()
@@ -118,6 +119,20 @@ async def websocket_endpoint(
                         broadcast_manager,
                         message_queue,
                         connection_manager,
+                    )
+                elif event_type == EventType.MESSAGE_EDITED:
+                    await handle_message_edited(
+                        MessageEditedEvent(**data),
+                        user_id,
+                        room_manager,
+                        broadcast_manager,
+                    )
+                elif event_type == EventType.MESSAGE_DELETED:
+                    await handle_message_deleted(
+                        MessageDeletedEvent(**data),
+                        user_id,
+                        room_manager,
+                        broadcast_manager,
                     )
                 elif event_type == EventType.JOIN_ROOM:
                     await handle_join_room(

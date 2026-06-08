@@ -16,6 +16,8 @@ class EventType(StrEnum):
     MESSAGE = "message"
     JOIN_ROOM = "join_room"
     LEAVE_ROOM = "leave_room"
+    MESSAGE_EDITED = "message_edited"
+    MESSAGE_DELETED = "message_deleted"
     PING = "ping"
     # Outgoing
     PONG = "pong"

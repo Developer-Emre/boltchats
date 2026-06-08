@@ -154,25 +154,42 @@ export function useMessages(
   const editMessage = useCallback(
     async (messageId: string, content: string): Promise<void> => {
       try {
+        const editedAt = new Date().toISOString();
         await (messagesApi as any).edit(roomId, messageId, content);
+        // Broadcast edit event to other room members
+        send({
+          type: 'message_edited',
+          room_id: roomId,
+          message_id: messageId,
+          content,
+          edited_at: editedAt,
+        });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to edit message';
         throw new Error(message);
       }
     },
-    [roomId],
+    [roomId, send],
   );
 
   const deleteMessage = useCallback(
     async (messageId: string): Promise<void> => {
       try {
+        const deletedAt = new Date().toISOString();
         await (messagesApi as any).delete(roomId, messageId);
+        // Broadcast delete event to other room members
+        send({
+          type: 'message_deleted',
+          room_id: roomId,
+          message_id: messageId,
+          deleted_at: deletedAt,
+        });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to delete message';
         throw new Error(message);
       }
     },
-    [roomId],
+    [roomId, send],
   );
 
   return { messages, isLoading, isLoadingMore, hasMore, connected, sendMessage, loadOlderMessages, editMessage, deleteMessage };
