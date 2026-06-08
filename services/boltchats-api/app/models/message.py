@@ -11,5 +11,7 @@ class MessageDocument(BaseModel):
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
+    edited_at: datetime | None = None
+    deleted_at: datetime | None = None
 
     model_config = {"populate_by_name": True}

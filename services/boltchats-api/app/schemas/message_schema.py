@@ -9,6 +9,13 @@ class MessageResponse(BaseModel):
     sender_id: str
     content: str
     created_at: datetime
+    edited_at: datetime | None = None
+    deleted_at: datetime | None = None
+    is_deleted: bool = False
+
+
+class EditMessageRequest(BaseModel):
+    content: str
 
 
 class MessageListResponse(BaseModel):

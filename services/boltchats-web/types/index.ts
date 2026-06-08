@@ -60,6 +60,9 @@ export interface Message {
   sender_id: string;
   content: string;
   created_at: string;
+  edited_at?: string;
+  deleted_at?: string;
+  is_deleted?: boolean;
 }
 
 // ── API error ─────────────────────────────────────────────────────────────────
@@ -88,6 +91,21 @@ export interface WsMessageConfirmedEvent {
   server_id: string;
 }
 
+export interface WsMessageEditedEvent {
+  type: 'message_edited';
+  room_id: string;
+  message_id: string;
+  content: string;
+  edited_at: string;
+}
+
+export interface WsMessageDeletedEvent {
+  type: 'message_deleted';
+  room_id: string;
+  message_id: string;
+  deleted_at: string;
+}
+
 export interface WsUserJoinedEvent {
   type: 'user_joined';
   room_id: string;
@@ -112,6 +130,8 @@ export interface WsPongEvent {
 export type WsEvent =
   | WsIncomingMessage
   | WsMessageConfirmedEvent
+  | WsMessageEditedEvent
+  | WsMessageDeletedEvent
   | WsUserJoinedEvent
   | WsUserLeftEvent
   | WsErrorEvent

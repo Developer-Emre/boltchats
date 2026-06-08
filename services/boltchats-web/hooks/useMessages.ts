@@ -13,6 +13,8 @@ interface UseMessagesReturn {
   connected: boolean;
   sendMessage: (content: string) => void;
   loadOlderMessages: () => void;
+  editMessage: (messageId: string, content: string) => Promise<void>;
+  deleteMessage: (messageId: string) => Promise<void>;
 }
 
 export function useMessages(
@@ -37,6 +39,28 @@ export function useMessages(
     if (event.type === 'message_confirmed') {
       setMessages((prev) =>
         prev.map((m) => (m.id === event.client_message_id ? { ...m, id: event.server_id } : m)),
+      );
+      return;
+    }
+
+    if (event.type === 'message_edited' && event.room_id === roomIdRef.current) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === event.message_id
+            ? { ...m, content: event.content, edited_at: event.edited_at }
+            : m,
+        ),
+      );
+      return;
+    }
+
+    if (event.type === 'message_deleted' && event.room_id === roomIdRef.current) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === event.message_id
+            ? { ...m, deleted_at: event.deleted_at, is_deleted: true }
+            : m,
+        ),
       );
       return;
     }
@@ -127,5 +151,27 @@ export function useMessages(
     [send, roomId, currentUserId],
   );
 
-  return { messages, isLoading, isLoadingMore, hasMore, connected, sendMessage, loadOlderMessages };
+  const editMessage = useCallback(
+    async (messageId: string, content: string): Promise<void> => {
+      try {
+        await (messagesApi as any).edit(roomId, messageId, content);
+      } catch {
+        throw new Error('Failed to edit message');
+      }
+    },
+    [roomId],
+  );
+
+  const deleteMessage = useCallback(
+    async (messageId: string): Promise<void> => {
+      try {
+        await (messagesApi as any).delete(roomId, messageId);
+      } catch {
+        throw new Error('Failed to delete message');
+      }
+    },
+    [roomId],
+  );
+
+  return { messages, isLoading, isLoadingMore, hasMore, connected, sendMessage, loadOlderMessages, editMessage, deleteMessage };
 }

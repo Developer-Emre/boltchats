@@ -202,6 +202,12 @@ export const messagesApi = {
     apiClient.get<MessageListResponse>(
       `/rooms/${roomId}/messages${before ? `?before=${before}` : ''}`
     ),
+
+  edit: (roomId: string, messageId: string, content: string): Promise<Message> =>
+    apiClient.patch<Message>(`/rooms/${roomId}/messages/${messageId}`, { content }),
+
+  delete: (roomId: string, messageId: string): Promise<void> =>
+    apiClient.delete<void>(`/rooms/${roomId}/messages/${messageId}`),
 };
 
 export const usersApi = {

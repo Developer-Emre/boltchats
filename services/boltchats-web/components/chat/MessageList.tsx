@@ -12,6 +12,8 @@ interface MessageListProps {
   isLoadingMore: boolean;
   hasMore: boolean;
   onLoadOlder: () => void;
+  onEditMessage?: (messageId: string, content: string) => Promise<void>;
+  onDeleteMessage?: (messageId: string) => Promise<void>;
 }
 
 export function MessageList({
@@ -21,6 +23,8 @@ export function MessageList({
   isLoadingMore,
   hasMore,
   onLoadOlder,
+  onEditMessage,
+  onDeleteMessage,
 }: MessageListProps): React.JSX.Element {
   const parentRef = useRef<HTMLDivElement>(null);
   const scrollToBottomRef = useRef<boolean>(true);
@@ -116,6 +120,8 @@ export function MessageList({
               <MessageBubble
                 message={messages[virtualItem.index]!}
                 isMine={messages[virtualItem.index]!.sender_id === currentUserId}
+                onEdit={onEditMessage}
+                onDelete={onDeleteMessage}
               />
             </div>
           ))}
