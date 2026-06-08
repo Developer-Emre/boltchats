@@ -15,21 +15,26 @@ class MessageRepository:
     def __init__(self, db: AsyncIOMotorDatabase) -> None:
         self._collection = db[MESSAGES_COLLECTION]
 
-    async def insert(self, payload: dict) -> None:
-        """Insert a message document with exponential backoff on failure."""
+    async def insert(self, payload: dict) -> str:
+        """Insert a message document with exponential backoff on failure.
+        
+        Returns the MongoDB ObjectId (_id) of the inserted document.
+        """
         delay = settings.consumer_retry_base_delay
         last_exc: Exception | None = None
 
         for attempt in range(1, settings.consumer_max_retries + 1):
             try:
-                await self._collection.insert_one(payload)
+                result = await self._collection.insert_one(payload)
+                inserted_id = str(result.inserted_id)
                 logger.debug(
                     "storage.inserted",
                     room_id=payload.get("room_id"),
                     sender_id=payload.get("sender_id"),
                     attempt=attempt,
+                    message_id=inserted_id,
                 )
-                return
+                return inserted_id
             except PyMongoError as exc:
                 last_exc = exc
                 record_failed()

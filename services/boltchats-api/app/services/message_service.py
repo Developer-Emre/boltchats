@@ -79,7 +79,22 @@ async def edit_message(
     db,
 ) -> MessageResponse:
     room_oid = parse_object_id(room_id, ErrorMessage.ROOM_NOT_FOUND)
-    message_oid = parse_object_id(message_id, "Invalid message ID")
+    
+    # Try to parse as ObjectId first, if that fails, assume it's a UUID (optimistic client ID)
+    # and query by UUID field in the collection
+    try:
+        message_oid = parse_object_id(message_id, "")
+    except Exception:
+        # message_id is likely a UUID from client (optimistic placeholder)
+        # Query by looking up in collection
+        try:
+            message = await db[Collection.MESSAGES].find_one({"_id": message_id})
+            if message:
+                message_oid = message["_id"]
+            else:
+                raise NotFoundException("Message not found")
+        except PyMongoError as exc:
+            raise DatabaseException("Failed to query message") from exc
 
     try:
         room = await db[Collection.ROOMS].find_one({"_id": room_oid})
@@ -130,7 +145,21 @@ async def delete_message(
     db,
 ) -> None:
     room_oid = parse_object_id(room_id, ErrorMessage.ROOM_NOT_FOUND)
-    message_oid = parse_object_id(message_id, "Invalid message ID")
+    
+    # Try to parse as ObjectId first, if that fails, assume it's a UUID (optimistic client ID)
+    try:
+        message_oid = parse_object_id(message_id, "")
+    except Exception:
+        # message_id is likely a UUID from client (optimistic placeholder)
+        # Query by looking up in collection
+        try:
+            message = await db[Collection.MESSAGES].find_one({"_id": message_id})
+            if message:
+                message_oid = message["_id"]
+            else:
+                raise NotFoundException("Message not found")
+        except PyMongoError as exc:
+            raise DatabaseException("Failed to query message") from exc
 
     try:
         room = await db[Collection.ROOMS].find_one({"_id": room_oid})
