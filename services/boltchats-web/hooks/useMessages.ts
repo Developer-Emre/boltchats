@@ -155,8 +155,9 @@ export function useMessages(
     async (messageId: string, content: string): Promise<void> => {
       try {
         await (messagesApi as any).edit(roomId, messageId, content);
-      } catch {
-        throw new Error('Failed to edit message');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to edit message';
+        throw new Error(message);
       }
     },
     [roomId],
@@ -166,8 +167,9 @@ export function useMessages(
     async (messageId: string): Promise<void> => {
       try {
         await (messagesApi as any).delete(roomId, messageId);
-      } catch {
-        throw new Error('Failed to delete message');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to delete message';
+        throw new Error(message);
       }
     },
     [roomId],

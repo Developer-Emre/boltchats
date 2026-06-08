@@ -45,13 +45,19 @@ export function MessageBubble({
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleEdit = async (): Promise<void> => {
     if (!onEdit || !editContent.trim()) return;
+    setError(null);
     try {
       setIsDeleting(true);
       await onEdit(message.id, editContent);
       setIsEditing(false);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to edit message';
+      setError(msg);
+      console.error('Edit error:', msg);
     } finally {
       setIsDeleting(false);
     }
@@ -60,9 +66,14 @@ export function MessageBubble({
   const handleDelete = async (): Promise<void> => {
     if (!onDelete) return;
     if (!confirm('Delete this message?')) return;
+    setError(null);
     try {
       setIsDeleting(true);
       await onDelete(message.id);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete message';
+      setError(msg);
+      console.error('Delete error:', msg);
     } finally {
       setIsDeleting(false);
     }
@@ -85,29 +96,39 @@ export function MessageBubble({
         {!isMine && <SenderLabel userId={message.sender_id} />}
 
         {isEditing ? (
-          <div className="flex gap-1 w-full">
-            <input
-              type="text"
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              className="flex-1 rounded px-2 py-1 text-sm bg-zinc-700 text-white border border-indigo-500"
-              disabled={isDeleting}
-              autoFocus
-            />
-            <button
-              onClick={handleEdit}
-              disabled={isDeleting}
-              className="px-2 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded disabled:opacity-50"
-            >
-              Save
-            </button>
-            <button
-              onClick={() => setIsEditing(false)}
-              disabled={isDeleting}
-              className="px-2 py-1 text-xs bg-zinc-700 hover:bg-zinc-600 text-white rounded disabled:opacity-50"
-            >
-              Cancel
-            </button>
+          <div className="flex gap-1 w-full flex-col">
+            {error && (
+              <div className="text-xs bg-red-900/50 text-red-300 px-2 py-1 rounded">
+                {error}
+              </div>
+            )}
+            <div className="flex gap-1">
+              <input
+                type="text"
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="flex-1 rounded px-2 py-1 text-sm bg-zinc-700 text-white border border-indigo-500"
+                disabled={isDeleting}
+                autoFocus
+              />
+              <button
+                onClick={handleEdit}
+                disabled={isDeleting}
+                className="px-2 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded disabled:opacity-50"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  setIsEditing(false);
+                  setError(null);
+                }}
+                disabled={isDeleting}
+                className="px-2 py-1 text-xs bg-zinc-700 hover:bg-zinc-600 text-white rounded disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         ) : (
           <>
