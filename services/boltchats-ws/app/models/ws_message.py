@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class QueueMessage(BaseModel):
     """Payload written to the Redis persistence queue for boltchats-storage."""
 
+    id: str
     room_id: str
     sender_id: str
     content: str

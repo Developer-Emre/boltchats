@@ -2,6 +2,7 @@ import structlog
 from datetime import datetime, timezone
 
 from pymongo.errors import PyMongoError
+from redis.asyncio import Redis
 
 from app.exceptions.http_exceptions import DatabaseException, ForbiddenException, NotFoundException
 from app.schemas.message_schema import EditMessageRequest, MessageListResponse, MessageResponse
@@ -12,6 +13,7 @@ logger = structlog.get_logger()
 
 _DEFAULT_LIMIT: int = 50
 _MAX_LIMIT: int = 100
+_REDIS_PREFIX_MESSAGE_ID_MAP = "message:id:"
 
 
 def _doc_to_message(doc: dict) -> MessageResponse:
@@ -25,6 +27,40 @@ def _doc_to_message(doc: dict) -> MessageResponse:
         deleted_at=doc.get("deleted_at"),
         is_deleted=doc.get("deleted_at") is not None,
     )
+
+
+async def _resolve_message_id(message_id: str, db, redis: Redis | None) -> str:
+    """Resolve message_id (UUID or ObjectId) to MongoDB ObjectId.
+    
+    1. Try parsing as ObjectId → return
+    2. Try Redis cache (UUID → ObjectId mapping)
+    3. Query MongoDB by UUID field
+    4. Raise NotFoundException if not found
+    """
+    # Try to parse as ObjectId first
+    try:
+        return parse_object_id(message_id, "")
+    except Exception:
+        pass
+    
+    # Try Redis cache
+    if redis:
+        try:
+            cached_oid = await redis.get(f"{_REDIS_PREFIX_MESSAGE_ID_MAP}{message_id}")
+            if cached_oid:
+                return cached_oid.decode() if isinstance(cached_oid, bytes) else cached_oid
+        except Exception as exc:
+            logger.warning("message_service.redis_lookup_failed", error=str(exc))
+    
+    # Query MongoDB by UUID
+    try:
+        message = await db[Collection.MESSAGES].find_one({"_id": message_id})
+        if message:
+            return message["_id"]
+    except PyMongoError as exc:
+        raise DatabaseException("Failed to query message") from exc
+    
+    raise NotFoundException("Message not found")
 
 
 async def get_history(
@@ -77,24 +113,12 @@ async def edit_message(
     user_id: str,
     payload: EditMessageRequest,
     db,
+    redis: Redis | None = None,
 ) -> MessageResponse:
     room_oid = parse_object_id(room_id, ErrorMessage.ROOM_NOT_FOUND)
     
-    # Try to parse as ObjectId first, if that fails, assume it's a UUID (optimistic client ID)
-    # and query by UUID field in the collection
-    try:
-        message_oid = parse_object_id(message_id, "")
-    except Exception:
-        # message_id is likely a UUID from client (optimistic placeholder)
-        # Query by looking up in collection
-        try:
-            message = await db[Collection.MESSAGES].find_one({"_id": message_id})
-            if message:
-                message_oid = message["_id"]
-            else:
-                raise NotFoundException("Message not found")
-        except PyMongoError as exc:
-            raise DatabaseException("Failed to query message") from exc
+    # Resolve UUID or ObjectId to MongoDB ObjectId
+    message_oid = await _resolve_message_id(message_id, db, redis)
 
     try:
         room = await db[Collection.ROOMS].find_one({"_id": room_oid})
@@ -143,23 +167,12 @@ async def delete_message(
     message_id: str,
     user_id: str,
     db,
+    redis: Redis | None = None,
 ) -> None:
     room_oid = parse_object_id(room_id, ErrorMessage.ROOM_NOT_FOUND)
     
-    # Try to parse as ObjectId first, if that fails, assume it's a UUID (optimistic client ID)
-    try:
-        message_oid = parse_object_id(message_id, "")
-    except Exception:
-        # message_id is likely a UUID from client (optimistic placeholder)
-        # Query by looking up in collection
-        try:
-            message = await db[Collection.MESSAGES].find_one({"_id": message_id})
-            if message:
-                message_oid = message["_id"]
-            else:
-                raise NotFoundException("Message not found")
-        except PyMongoError as exc:
-            raise DatabaseException("Failed to query message") from exc
+    # Resolve UUID or ObjectId to MongoDB ObjectId
+    message_oid = await _resolve_message_id(message_id, db, redis)
 
     try:
         room = await db[Collection.ROOMS].find_one({"_id": room_oid})

@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await connect_redis()
     logger.info("storage.startup", service=SERVICE_NAME)
 
-    repo = MessageRepository(get_database())
+    repo = MessageRepository(get_database(), get_redis())
     consumer_task = asyncio.create_task(consume(get_redis(), repo))
 
     yield

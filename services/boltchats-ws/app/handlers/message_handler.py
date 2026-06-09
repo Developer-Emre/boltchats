@@ -48,6 +48,7 @@ async def handle_message(
         created_at=now.isoformat(),
     )
     queue_msg = QueueMessage(
+        id=message_id,
         room_id=event.room_id,
         sender_id=user_id,
         content=event.content,

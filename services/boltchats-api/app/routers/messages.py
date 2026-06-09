@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.core.database import get_database
+from app.core.redis import get_redis
 from app.middlewares.auth_middleware import get_current_user
 from app.schemas.message_schema import EditMessageRequest, MessageListResponse, MessageResponse
 from app.services import message_service
@@ -26,8 +27,9 @@ async def edit_message(
     payload: EditMessageRequest,
     current_user: str = Depends(get_current_user),
     db=Depends(get_database),
+    redis=Depends(get_redis),
 ) -> MessageResponse:
-    return await message_service.edit_message(room_id, message_id, current_user, payload, db)
+    return await message_service.edit_message(room_id, message_id, current_user, payload, db, redis)
 
 
 @router.delete("/{room_id}/messages/{message_id}", status_code=204)
@@ -36,5 +38,6 @@ async def delete_message(
     message_id: str,
     current_user: str = Depends(get_current_user),
     db=Depends(get_database),
+    redis=Depends(get_redis),
 ) -> None:
-    await message_service.delete_message(room_id, message_id, current_user, db)
+    await message_service.delete_message(room_id, message_id, current_user, db, redis)
