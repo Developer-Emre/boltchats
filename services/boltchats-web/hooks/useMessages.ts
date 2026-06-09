@@ -44,24 +44,28 @@ export function useMessages(
     }
 
     if (event.type === 'message_edited' && event.room_id === roomIdRef.current) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === event.message_id
-            ? { ...m, content: event.content, edited_at: event.edited_at }
-            : m,
-        ),
-      );
+      setMessages((prev) => {
+        const updated = prev.map((m) => {
+          if (m.id === event.message_id) {
+            return { ...m, content: event.content, edited_at: event.edited_at };
+          }
+          return m;
+        });
+        return updated;
+      });
       return;
     }
 
     if (event.type === 'message_deleted' && event.room_id === roomIdRef.current) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === event.message_id
-            ? { ...m, deleted_at: event.deleted_at, is_deleted: true }
-            : m,
-        ),
-      );
+      setMessages((prev) => {
+        const updated = prev.map((m) => {
+          if (m.id === event.message_id) {
+            return { ...m, deleted_at: event.deleted_at, is_deleted: true };
+          }
+          return m;
+        });
+        return updated;
+      });
       return;
     }
 
