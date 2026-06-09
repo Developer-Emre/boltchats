@@ -30,8 +30,11 @@ export function MessageList({
   const scrollToBottomRef = useRef<boolean>(true);
   const [wasBelowThreshold, setWasBelowThreshold] = useState(false);
 
+  // Filter out deleted messages
+  const visibleMessages = messages.filter((m) => !m.is_deleted && !m.deleted_at);
+
   const rowVirtualizer = useVirtualizer({
-    count: messages.length,
+    count: visibleMessages.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 80,
     overscan: 10,
@@ -47,9 +50,9 @@ export function MessageList({
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (parentRef.current && scrollToBottomRef.current) {
-      rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'smooth' });
+      rowVirtualizer.scrollToIndex(visibleMessages.length - 1, { align: 'end', behavior: 'smooth' });
     }
-  }, [messages.length, rowVirtualizer]);
+  }, [visibleMessages.length, rowVirtualizer]);
 
   // Detect if near bottom — if yes, keep auto-scrolling
   useEffect(() => {
@@ -97,6 +100,17 @@ export function MessageList({
     );
   }
 
+  if (visibleMessages.length === 0) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center px-8">
+        <span className="text-4xl opacity-30">🗑️</span>
+        <p className="text-sm text-zinc-600 max-w-xs">
+          All messages have been deleted.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div ref={parentRef} className="flex flex-1 flex-col overflow-y-auto px-4 py-4">
       {isLoadingMore && hasMore && (
@@ -118,8 +132,8 @@ export function MessageList({
           {virtualItems.map((virtualItem) => (
             <div key={virtualItem.key} className="mb-4">
               <MessageBubble
-                message={messages[virtualItem.index]!}
-                isMine={messages[virtualItem.index]!.sender_id === currentUserId}
+                message={visibleMessages[virtualItem.index]!}
+                isMine={visibleMessages[virtualItem.index]!.sender_id === currentUserId}
                 onEdit={onEditMessage}
                 onDelete={onDeleteMessage}
               />

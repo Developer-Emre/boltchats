@@ -79,8 +79,6 @@ export function MessageBubble({
     }
   };
 
-  const isDeleted = message.is_deleted || message.deleted_at;
-
   return (
     <div className={`flex gap-2 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
       <Avatar
@@ -138,12 +136,11 @@ export function MessageBubble({
                 isMine
                   ? 'bg-indigo-600 text-white'
                   : 'bg-zinc-800 text-zinc-100 border border-zinc-700/60',
-                isDeleted ? 'opacity-50 italic' : '',
               ].join(' ')}
             >
-              {isDeleted ? '(deleted)' : message.content}
+              {message.content}
 
-              {isMine && showActions && !isDeleted && message.confirmed !== false && (
+              {isMine && showActions && message.confirmed !== false && (
                 <div className="absolute -right-14 top-0 flex gap-1 bg-zinc-900 rounded p-1 shadow-lg z-10">
                   <button
                     onClick={() => setIsEditing(true)}
