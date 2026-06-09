@@ -59,19 +59,31 @@ async def lifespan(app: FastAPI):
         try:
             confirmation = json.loads(data)
             client_message_id = confirmation.get("client_message_id")
-            
-            # Find which user sent this message (the client_message_id is unique per client)
-            # We need to send it to the user who has this optimistic message
-            # For now, broadcast to the room and let frontend filter
             room_id = confirmation.get("room_id")
+            server_id = confirmation.get("server_id")
+            
+            logger.debug(
+                "message_confirmation_manager.received",
+                client_message_id=client_message_id,
+                server_id=server_id,
+                room_id=room_id,
+            )
             
             # Send confirmation to all users in the room
             # Frontend will match by client_message_id
             msg = MessageConfirmed(
                 client_message_id=client_message_id,
-                server_id=confirmation.get("server_id"),
+                server_id=server_id,
             )
             members = room_manager.get_members(room_id)
+            
+            logger.debug(
+                "message_confirmation_manager.sending",
+                room_id=room_id,
+                num_members=len(members),
+                member_ids=members,
+            )
+            
             await asyncio.gather(
                 *[connection_manager.send_to_user(uid, msg.model_dump_json()) for uid in members],
                 return_exceptions=True,
