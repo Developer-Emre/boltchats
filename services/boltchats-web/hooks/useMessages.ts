@@ -38,7 +38,7 @@ export function useMessages(
     // with the authoritative server id. Never goes to other room members.
     if (event.type === 'message_confirmed') {
       setMessages((prev) =>
-        prev.map((m) => (m.id === event.client_message_id ? { ...m, id: event.server_id } : m)),
+        prev.map((m) => (m.id === event.client_message_id ? { ...m, id: event.server_id, confirmed: true } : m)),
       );
       return;
     }
@@ -70,7 +70,7 @@ export function useMessages(
     setMessages((prev) => {
       // Guard against duplicate delivery (e.g. reconnect replays)
       if (prev.some((m) => m.id === event.id)) return prev;
-      return [...prev, event as Message];
+      return [...prev, { ...event as Message, confirmed: true }];
     });
   }, []);
 
@@ -143,6 +143,7 @@ export function useMessages(
           sender_id: currentUserId,
           content: trimmed,
           created_at: new Date().toISOString(),
+          confirmed: false,
         },
       ]);
 

@@ -143,7 +143,7 @@ export function MessageBubble({
             >
               {isDeleted ? '(deleted)' : message.content}
 
-              {isMine && showActions && !isDeleted && (
+              {isMine && showActions && !isDeleted && message.confirmed !== false && (
                 <div className="absolute -right-14 top-0 flex gap-1 bg-zinc-900 rounded p-1 shadow-lg z-10">
                   <button
                     onClick={() => setIsEditing(true)}
@@ -157,6 +157,11 @@ export function MessageBubble({
                   >
                     Delete
                   </button>
+                </div>
+              )}
+              {isMine && message.confirmed === false && (
+                <div className="absolute -right-20 top-0 text-xs text-zinc-500 font-mono">
+                  saving…
                 </div>
               )}
             </div>

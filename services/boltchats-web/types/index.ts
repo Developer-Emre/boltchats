@@ -63,6 +63,8 @@ export interface Message {
   edited_at?: string;
   deleted_at?: string;
   is_deleted?: boolean;
+  /** Flag: false = optimistic (still being persisted), true = confirmed by server */
+  confirmed?: boolean;
 }
 
 // ── API error ─────────────────────────────────────────────────────────────────
