@@ -15,11 +15,13 @@ from app.handlers.ping_handler import handle_ping
 from app.handlers.room_handler import handle_join_room, handle_leave_room
 from app.managers.broadcast_manager import BroadcastManager
 from app.managers.connection_manager import ConnectionManager
+from app.managers.message_confirmation_manager import MessageConfirmationManager
 from app.managers.presence_manager import PresenceManager
 from app.managers.room_manager import RoomManager
 from app.middlewares.auth_websocket import authenticate_ws
 from app.middlewares.rate_limit_ws import check_message_rate_limit
 from app.models.ws_event import JoinRoomEvent, LeaveRoomEvent, MessageEvent, MessageEditedEvent, MessageDeletedEvent
+from app.models.ws_message import MessageConfirmed
 from app.utils.message_queue import MessageQueue
 
 logger = structlog.get_logger()
@@ -38,6 +40,7 @@ async def lifespan(app: FastAPI):
     broadcast_manager = BroadcastManager(redis)
     presence_manager = PresenceManager(redis)
     message_queue = MessageQueue(redis)
+    confirmation_manager = MessageConfirmationManager(redis)
 
     async def on_broadcast(room_id: str, data: str) -> None:
         """Deliver a broadcast message to all local connections in the room."""
@@ -47,16 +50,54 @@ async def lifespan(app: FastAPI):
             return_exceptions=True,
         )
 
+    async def on_message_confirmed(data: str) -> None:
+        """Receive message confirmation from storage service.
+        
+        Data format: { "client_message_id": uuid, "server_id": ObjectId, "room_id": room_id }
+        Send it to the original sender so they can update their optimistic message.
+        """
+        try:
+            confirmation = json.loads(data)
+            client_message_id = confirmation.get("client_message_id")
+            
+            # Find which user sent this message (the client_message_id is unique per client)
+            # We need to send it to the user who has this optimistic message
+            # For now, broadcast to the room and let frontend filter
+            room_id = confirmation.get("room_id")
+            
+            # Send confirmation to all users in the room
+            # Frontend will match by client_message_id
+            msg = MessageConfirmed(
+                client_message_id=client_message_id,
+                server_id=confirmation.get("server_id"),
+            )
+            members = room_manager.get_members(room_id)
+            await asyncio.gather(
+                *[connection_manager.send_to_user(uid, msg.model_dump_json()) for uid in members],
+                return_exceptions=True,
+            )
+            
+            logger.debug(
+                "message_confirmed.forwarded",
+                room_id=room_id,
+                client_message_id=client_message_id,
+            )
+        except Exception as exc:
+            logger.exception("message_confirmed.forward_failed", error=str(exc))
+
     await broadcast_manager.start(on_broadcast)
+    await confirmation_manager.start(on_message_confirmed)
 
     app.state.redis = redis
     app.state.broadcast_manager = broadcast_manager
     app.state.presence_manager = presence_manager
     app.state.message_queue = message_queue
+    app.state.confirmation_manager = confirmation_manager
 
     logger.info("boltchats_ws.started")
     yield
 
+    await confirmation_manager.stop()
     await broadcast_manager.stop()
     await close_redis()
     logger.info("boltchats_ws.stopped")
