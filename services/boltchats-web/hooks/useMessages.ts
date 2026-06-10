@@ -15,6 +15,8 @@ interface UseMessagesReturn {
   loadOlderMessages: () => void;
   editMessage: (messageId: string, content: string) => Promise<void>;
   deleteMessage: (messageId: string) => Promise<void>;
+  addReaction: (messageId: string, emoji: string) => Promise<void>;
+  removeReaction: (messageId: string, emoji: string) => Promise<void>;
 }
 
 export function useMessages(
@@ -66,6 +68,45 @@ export function useMessages(
         });
         return updated;
       });
+      return;
+    }
+
+    if (event.type === 'reaction_added' && event.room_id === roomIdRef.current) {
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id === event.message_id) {
+            const reactions = [...(m.reactions || [])];
+            const existingReaction = reactions.find((r) => r.emoji === event.emoji);
+            if (existingReaction) {
+              if (!existingReaction.users.includes(event.user_id)) {
+                existingReaction.users.push(event.user_id);
+              }
+            } else {
+              reactions.push({ emoji: event.emoji, users: [event.user_id] });
+            }
+            return { ...m, reactions };
+          }
+          return m;
+        }),
+      );
+      return;
+    }
+
+    if (event.type === 'reaction_removed' && event.room_id === roomIdRef.current) {
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id === event.message_id) {
+            const reactions = (m.reactions || [])
+              .map((r) => ({
+                ...r,
+                users: r.emoji === event.emoji ? r.users.filter((u) => u !== event.user_id) : r.users,
+              }))
+              .filter((r) => r.users.length > 0);
+            return { ...m, reactions };
+          }
+          return m;
+        }),
+      );
       return;
     }
 
@@ -160,7 +201,18 @@ export function useMessages(
     async (messageId: string, content: string): Promise<void> => {
       try {
         const editedAt = new Date().toISOString();
+        
+        // Optimistic UI: update immediately (don't wait for API)
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId
+              ? { ...m, content, edited_at: editedAt }
+              : m,
+          ),
+        );
+
         await (messagesApi as any).edit(roomId, messageId, content);
+        
         // Broadcast edit event to other room members
         send({
           type: 'message_edited',
@@ -170,6 +222,7 @@ export function useMessages(
           edited_at: editedAt,
         });
       } catch (err) {
+        // Revert optimistic update on error (fetch fresh message from API)
         const message = err instanceof Error ? err.message : 'Failed to edit message';
         throw new Error(message);
       }
@@ -181,7 +234,18 @@ export function useMessages(
     async (messageId: string): Promise<void> => {
       try {
         const deletedAt = new Date().toISOString();
+        
+        // Optimistic UI: remove immediately (don't wait for API)
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId
+              ? { ...m, deleted_at: deletedAt, is_deleted: true }
+              : m,
+          ),
+        );
+
         await (messagesApi as any).delete(roomId, messageId);
+        
         // Broadcast delete event to other room members
         send({
           type: 'message_deleted',
@@ -190,6 +254,14 @@ export function useMessages(
           deleted_at: deletedAt,
         });
       } catch (err) {
+        // Revert optimistic update on error
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId
+              ? { ...m, deleted_at: undefined, is_deleted: false }
+              : m,
+          ),
+        );
         const message = err instanceof Error ? err.message : 'Failed to delete message';
         throw new Error(message);
       }
@@ -197,5 +269,115 @@ export function useMessages(
     [roomId, send],
   );
 
-  return { messages, isLoading, isLoadingMore, hasMore, connected, sendMessage, loadOlderMessages, editMessage, deleteMessage };
+  const addReaction = useCallback(
+    async (messageId: string, emoji: string): Promise<void> => {
+      try {
+        // Optimistic UI: add reaction immediately
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id === messageId) {
+              const reactions = [...(m.reactions || [])];
+              const existing = reactions.find((r) => r.emoji === emoji);
+              if (existing) {
+                if (!existing.users.includes(currentUserId)) {
+                  existing.users.push(currentUserId);
+                }
+              } else {
+                reactions.push({ emoji, users: [currentUserId] });
+              }
+              return { ...m, reactions };
+            }
+            return m;
+          }),
+        );
+
+        await (messagesApi as any).addReaction(roomId, messageId, emoji);
+
+        // Broadcast reaction to other room members
+        send({
+          type: 'reaction_added',
+          room_id: roomId,
+          message_id: messageId,
+          emoji,
+          user_id: currentUserId,
+        });
+      } catch (err) {
+        // Revert on error
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id === messageId) {
+              const reactions = (m.reactions || [])
+                .map((r) => ({
+                  ...r,
+                  users: r.emoji === emoji ? r.users.filter((u) => u !== currentUserId) : r.users,
+                }))
+                .filter((r) => r.users.length > 0);
+              return { ...m, reactions };
+            }
+            return m;
+          }),
+        );
+        const message = err instanceof Error ? err.message : 'Failed to add reaction';
+        throw new Error(message);
+      }
+    },
+    [roomId, currentUserId, send],
+  );
+
+  const removeReaction = useCallback(
+    async (messageId: string, emoji: string): Promise<void> => {
+      try {
+        // Optimistic UI: remove reaction immediately
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id === messageId) {
+              const reactions = (m.reactions || [])
+                .map((r) => ({
+                  ...r,
+                  users: r.emoji === emoji ? r.users.filter((u) => u !== currentUserId) : r.users,
+                }))
+                .filter((r) => r.users.length > 0);
+              return { ...m, reactions };
+            }
+            return m;
+          }),
+        );
+
+        await (messagesApi as any).removeReaction(roomId, messageId, emoji);
+
+        // Broadcast reaction removal to other room members
+        send({
+          type: 'reaction_removed',
+          room_id: roomId,
+          message_id: messageId,
+          emoji,
+          user_id: currentUserId,
+        });
+      } catch (err) {
+        // Revert on error
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id === messageId) {
+              const reactions = [...(m.reactions || [])];
+              const existing = reactions.find((r) => r.emoji === emoji);
+              if (existing) {
+                if (!existing.users.includes(currentUserId)) {
+                  existing.users.push(currentUserId);
+                }
+              } else {
+                reactions.push({ emoji, users: [currentUserId] });
+              }
+              return { ...m, reactions };
+            }
+            return m;
+          }),
+        );
+        const message = err instanceof Error ? err.message : 'Failed to remove reaction';
+        throw new Error(message);
+      }
+    },
+    [roomId, currentUserId, send],
+  );
+
+  return { messages, isLoading, isLoadingMore, hasMore, connected, sendMessage, loadOlderMessages, editMessage, deleteMessage, addReaction, removeReaction };
 }

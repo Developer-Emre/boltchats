@@ -5,12 +5,16 @@ import { useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { useUserById } from '@/hooks/useUser';
 import type { Message } from '@/types';
+import { MessageActionMenu } from '@/components/chat/MessageActionMenu';
 
 interface MessageBubbleProps {
   message: Message;
   isMine: boolean;
+  currentUserId?: string;
   onEdit?: (messageId: string, content: string) => Promise<void>;
   onDelete?: (messageId: string) => Promise<void>;
+  onAddReaction?: (messageId: string, emoji: string) => Promise<void>;
+  onRemoveReaction?: (messageId: string, emoji: string) => Promise<void>;
 }
 
 function formatTime(iso: string): string {
@@ -36,8 +40,11 @@ function SenderLabel({ userId }: { userId: string }): React.JSX.Element {
 export function MessageBubble({
   message,
   isMine,
+  currentUserId,
   onEdit,
   onDelete,
+  onAddReaction,
+  onRemoveReaction,
 }: MessageBubbleProps): React.JSX.Element {
   const { user: sender } = useUserById(message.sender_id);
   const displayName = sender?.username ?? message.sender_id.slice(0, 8);
@@ -46,6 +53,7 @@ export function MessageBubble({
   const [editContent, setEditContent] = useState(message.content);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleEdit = async (): Promise<void> => {
     if (!onEdit || !editContent.trim()) return;
@@ -65,17 +73,35 @@ export function MessageBubble({
 
   const handleDelete = async (): Promise<void> => {
     if (!onDelete) return;
-    if (!confirm('Delete this message?')) return;
     setError(null);
     try {
       setIsDeleting(true);
       await onDelete(message.id);
+      setShowDeleteConfirm(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to delete message';
       setError(msg);
       console.error('Delete error:', msg);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleAddReaction = async (emoji: string): Promise<void> => {
+    if (!onAddReaction) return;
+    try {
+      await onAddReaction(message.id, emoji);
+    } catch (err) {
+      console.error('Failed to add reaction:', err);
+    }
+  };
+
+  const handleRemoveReaction = async (emoji: string): Promise<void> => {
+    if (!onRemoveReaction) return;
+    try {
+      await onRemoveReaction(message.id, emoji);
+    } catch (err) {
+      console.error('Failed to remove reaction:', err);
     }
   };
 
@@ -140,20 +166,15 @@ export function MessageBubble({
             >
               {message.content}
 
-              {isMine && showActions && message.confirmed !== false && (
-                <div className="absolute -right-14 top-0 flex gap-1 bg-zinc-900 rounded p-1 shadow-lg z-10">
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="px-2 py-1 text-xs hover:bg-zinc-700 text-zinc-300 rounded"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="px-2 py-1 text-xs hover:bg-red-900/50 text-red-400 rounded"
-                  >
-                    Delete
-                  </button>
+              {showActions && message.confirmed !== false && (
+                <div className="absolute -right-8 top-0">
+                  <MessageActionMenu
+                    messageId={message.id}
+                    isMine={isMine}
+                    onEdit={() => setIsEditing(true)}
+                    onDelete={() => setShowDeleteConfirm(true)}
+                    onAddReaction={handleAddReaction}
+                  />
                 </div>
               )}
               {isMine && message.confirmed === false && (
@@ -169,7 +190,61 @@ export function MessageBubble({
           {formatTime(message.created_at)}
           {message.edited_at && <span className="ml-1">(edited)</span>}
         </span>
+
+        {message.reactions && message.reactions.length > 0 && (
+          <div className="flex gap-1 mt-1 flex-wrap px-1">
+            {message.reactions.map((reaction) => {
+              const hasReacted = currentUserId && reaction.users.includes(currentUserId);
+              return (
+                <button
+                  key={reaction.emoji}
+                  onClick={() => {
+                    if (hasReacted) {
+                      handleRemoveReaction(reaction.emoji);
+                    } else {
+                      handleAddReaction(reaction.emoji);
+                    }
+                  }}
+                  className={`text-xs px-2 py-1 rounded transition-colors ${
+                    hasReacted
+                      ? 'bg-indigo-600/50 text-yellow-300 border border-indigo-500'
+                      : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'
+                  }`}
+                >
+                  {reaction.emoji} {reaction.users.length}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-zinc-800 rounded-lg p-6 max-w-sm mx-auto shadow-xl border border-zinc-700">
+            <h3 className="text-white font-semibold mb-2">Delete message?</h3>
+            <p className="text-zinc-400 text-sm mb-6">
+              This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm bg-zinc-700 hover:bg-zinc-600 text-white rounded disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 text-white rounded disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

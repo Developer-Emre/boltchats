@@ -3,7 +3,8 @@ from fastapi import APIRouter, Depends, Query
 from app.core.database import get_database
 from app.middlewares.auth_middleware import get_current_user
 from app.schemas.message_schema import EditMessageRequest, MessageListResponse, MessageResponse
-from app.services import message_service
+from app.schemas.reaction_schema import ReactionData
+from app.services import message_service, reaction_service
 
 router = APIRouter(prefix="/rooms", tags=["messages"])
 
@@ -38,3 +39,25 @@ async def delete_message(
     db=Depends(get_database),
 ) -> None:
     await message_service.delete_message(room_id, message_id, current_user, db)
+
+
+@router.post("/{room_id}/messages/{message_id}/reactions/{emoji}", response_model=ReactionData)
+async def add_reaction(
+    room_id: str,
+    message_id: str,
+    emoji: str,
+    current_user: str = Depends(get_current_user),
+    db=Depends(get_database),
+) -> ReactionData:
+    return await reaction_service.add_reaction(room_id, message_id, current_user, emoji, db)
+
+
+@router.delete("/{room_id}/messages/{message_id}/reactions/{emoji}", status_code=204)
+async def remove_reaction(
+    room_id: str,
+    message_id: str,
+    emoji: str,
+    current_user: str = Depends(get_current_user),
+    db=Depends(get_database),
+) -> None:
+    await reaction_service.remove_reaction(room_id, message_id, current_user, emoji, db)

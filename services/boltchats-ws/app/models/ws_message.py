@@ -54,3 +54,23 @@ class MessageDeletedBroadcast(BaseModel):
     room_id: str
     message_id: str
     deleted_at: str
+
+
+class ReactionAddedBroadcast(BaseModel):
+    """Broadcast to all room members when a reaction is added."""
+
+    type: str = "reaction_added"
+    room_id: str
+    message_id: str
+    emoji: str
+    user_id: str
+
+
+class ReactionRemovedBroadcast(BaseModel):
+    """Broadcast to all room members when a reaction is removed."""
+
+    type: str = "reaction_removed"
+    room_id: str
+    message_id: str
+    emoji: str
+    user_id: str

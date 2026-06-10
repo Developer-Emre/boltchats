@@ -65,6 +65,12 @@ export interface Message {
   is_deleted?: boolean;
   /** Flag: false = optimistic (still being persisted), true = confirmed by server */
   confirmed?: boolean;
+  reactions?: Reaction[];
+}
+
+export interface Reaction {
+  emoji: string;
+  users: string[];
 }
 
 // ── API error ─────────────────────────────────────────────────────────────────
@@ -129,6 +135,22 @@ export interface WsPongEvent {
   type: 'pong';
 }
 
+export interface WsReactionAddedEvent {
+  type: 'reaction_added';
+  room_id: string;
+  message_id: string;
+  emoji: string;
+  user_id: string;
+}
+
+export interface WsReactionRemovedEvent {
+  type: 'reaction_removed';
+  room_id: string;
+  message_id: string;
+  emoji: string;
+  user_id: string;
+}
+
 export type WsEvent =
   | WsIncomingMessage
   | WsMessageConfirmedEvent
@@ -136,6 +158,8 @@ export type WsEvent =
   | WsMessageDeletedEvent
   | WsUserJoinedEvent
   | WsUserLeftEvent
+  | WsReactionAddedEvent
+  | WsReactionRemovedEvent
   | WsErrorEvent
   | WsPongEvent;
 
@@ -177,4 +201,28 @@ export interface WsPing {
   type: 'ping';
 }
 
-export type WsOutgoingEvent = WsSendMessage | WsJoinRoom | WsLeaveRoom | WsSendMessageEdited | WsSendMessageDeleted | WsPing;
+export interface WsSendReactionAdded {
+  type: 'reaction_added';
+  room_id: string;
+  message_id: string;
+  emoji: string;
+  user_id: string;
+}
+
+export interface WsSendReactionRemoved {
+  type: 'reaction_removed';
+  room_id: string;
+  message_id: string;
+  emoji: string;
+  user_id: string;
+}
+
+export type WsOutgoingEvent = 
+  | WsSendMessage 
+  | WsJoinRoom 
+  | WsLeaveRoom 
+  | WsSendMessageEdited 
+  | WsSendMessageDeleted 
+  | WsSendReactionAdded 
+  | WsSendReactionRemoved 
+  | WsPing;

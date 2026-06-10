@@ -208,6 +208,17 @@ export const messagesApi = {
 
   delete: (roomId: string, messageId: string): Promise<void> =>
     apiClient.delete<void>(`/rooms/${roomId}/messages/${messageId}`),
+
+  addReaction: (roomId: string, messageId: string, emoji: string): Promise<void> =>
+    apiClient.post<void>(
+      `/rooms/${roomId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`,
+      {},
+    ),
+
+  removeReaction: (roomId: string, messageId: string, emoji: string): Promise<void> =>
+    apiClient.delete<void>(
+      `/rooms/${roomId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`,
+    ),
 };
 
 export const usersApi = {

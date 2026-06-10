@@ -19,6 +19,7 @@ class Collection(StrEnum):
     USERS = "users"
     ROOMS = "rooms"
     MESSAGES = "messages"
+    REACTIONS = "reactions"
 
 
 class ErrorMessage(StrEnum):

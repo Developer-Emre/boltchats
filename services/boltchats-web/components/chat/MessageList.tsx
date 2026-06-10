@@ -14,6 +14,8 @@ interface MessageListProps {
   onLoadOlder: () => void;
   onEditMessage?: (messageId: string, content: string) => Promise<void>;
   onDeleteMessage?: (messageId: string) => Promise<void>;
+  onAddReaction?: (messageId: string, emoji: string) => Promise<void>;
+  onRemoveReaction?: (messageId: string, emoji: string) => Promise<void>;
 }
 
 export function MessageList({
@@ -25,6 +27,8 @@ export function MessageList({
   onLoadOlder,
   onEditMessage,
   onDeleteMessage,
+  onAddReaction,
+  onRemoveReaction,
 }: MessageListProps): React.JSX.Element {
   const parentRef = useRef<HTMLDivElement>(null);
   const scrollToBottomRef = useRef<boolean>(true);
@@ -134,8 +138,11 @@ export function MessageList({
               <MessageBubble
                 message={visibleMessages[virtualItem.index]!}
                 isMine={visibleMessages[virtualItem.index]!.sender_id === currentUserId}
+                currentUserId={currentUserId}
                 onEdit={onEditMessage}
                 onDelete={onDeleteMessage}
+                onAddReaction={onAddReaction}
+                onRemoveReaction={onRemoveReaction}
               />
             </div>
           ))}

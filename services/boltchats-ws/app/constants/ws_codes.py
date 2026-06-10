@@ -18,6 +18,8 @@ class EventType(StrEnum):
     LEAVE_ROOM = "leave_room"
     MESSAGE_EDITED = "message_edited"
     MESSAGE_DELETED = "message_deleted"
+    REACTION_ADDED = "reaction_added"
+    REACTION_REMOVED = "reaction_removed"
     PING = "ping"
     # Outgoing
     PONG = "pong"

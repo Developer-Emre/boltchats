@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.core.redis import close_redis, connect_redis, get_redis
 from app.handlers.message_handler import handle_message
 from app.handlers.message_edit_delete_handler import handle_message_edited, handle_message_deleted
+from app.handlers.reaction_handler import handle_reaction_added, handle_reaction_removed
 from app.handlers.ping_handler import handle_ping
 from app.handlers.room_handler import handle_join_room, handle_leave_room
 from app.managers.broadcast_manager import BroadcastManager
@@ -20,7 +21,15 @@ from app.managers.presence_manager import PresenceManager
 from app.managers.room_manager import RoomManager
 from app.middlewares.auth_websocket import authenticate_ws
 from app.middlewares.rate_limit_ws import check_message_rate_limit
-from app.models.ws_event import JoinRoomEvent, LeaveRoomEvent, MessageEvent, MessageEditedEvent, MessageDeletedEvent
+from app.models.ws_event import (
+    JoinRoomEvent,
+    LeaveRoomEvent,
+    MessageEvent,
+    MessageEditedEvent,
+    MessageDeletedEvent,
+    ReactionAddedEvent,
+    ReactionRemovedEvent,
+)
 from app.models.ws_message import MessageConfirmed
 from app.utils.message_queue import MessageQueue
 
@@ -183,6 +192,20 @@ async def websocket_endpoint(
                 elif event_type == EventType.MESSAGE_DELETED:
                     await handle_message_deleted(
                         MessageDeletedEvent(**data),
+                        user_id,
+                        room_manager,
+                        broadcast_manager,
+                    )
+                elif event_type == EventType.REACTION_ADDED:
+                    await handle_reaction_added(
+                        ReactionAddedEvent(**data),
+                        user_id,
+                        room_manager,
+                        broadcast_manager,
+                    )
+                elif event_type == EventType.REACTION_REMOVED:
+                    await handle_reaction_removed(
+                        ReactionRemovedEvent(**data),
                         user_id,
                         room_manager,
                         broadcast_manager,

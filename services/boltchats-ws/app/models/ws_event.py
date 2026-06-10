@@ -38,7 +38,24 @@ class MessageDeletedEvent(BaseEvent):
     type: Literal["message_deleted"]
     room_id: str
     message_id: str
+    deleted_at: str
 
 
 class PingEvent(BaseEvent):
     type: Literal["ping"]
+
+
+class ReactionAddedEvent(BaseEvent):
+    type: Literal["reaction_added"]
+    room_id: str
+    message_id: str
+    emoji: str
+    user_id: str
+
+
+class ReactionRemovedEvent(BaseEvent):
+    type: Literal["reaction_removed"]
+    room_id: str
+    message_id: str
+    emoji: str
+    user_id: str

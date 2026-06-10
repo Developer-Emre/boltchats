@@ -10,6 +10,7 @@ import {
   useState,
   useCallback,
 } from 'react';
+import EmojiPicker from 'emoji-picker-react';
 
 interface MessageInputProps {
   onSend: (content: string) => void;
@@ -23,6 +24,7 @@ export function MessageInput({
   roomName,
 }: MessageInputProps): React.JSX.Element {
   const [value, setValue] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea
@@ -55,11 +57,44 @@ export function MessageInput({
     setValue(e.target.value);
   }, []);
 
+  const handleSelectEmoji = useCallback((emoji: string): void => {
+    setValue((prev) => prev + emoji);
+    // Focus textarea
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }, []);
+
   return (
     <form
       onSubmit={handleSubmit}
       className="flex items-end gap-2 border-t border-zinc-800 bg-[#0c0c0e] px-4 py-3"
     >
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          disabled={disabled}
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-zinc-700 bg-zinc-900 text-yellow-400 hover:bg-zinc-800 disabled:opacity-50"
+          title="Add emoji"
+        >
+          😊
+        </button>
+        {showEmojiPicker && (
+          <div className="absolute bottom-12 left-0 z-50">
+            <EmojiPicker
+              open={showEmojiPicker}
+              onEmojiClick={(e) => {
+                handleSelectEmoji(e.emoji);
+                setShowEmojiPicker(false);
+              }}
+              width={300}
+              height={400}
+              previewConfig={{ showPreview: false }}
+              searchPlaceholder="Search emoji..."
+            />
+          </div>
+        )}
+      </div>
+
       <textarea
         ref={textareaRef}
         value={value}
