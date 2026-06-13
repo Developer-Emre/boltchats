@@ -1,6 +1,7 @@
 import type React from 'react';
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { GoogleProvider } from '@/components/providers/GoogleProvider';
 import './globals.css';
 
@@ -30,7 +31,9 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full`}
     >
       <body className="h-full antialiased">
-        <GoogleProvider>{children}</GoogleProvider>
+        <TooltipProvider>
+          <GoogleProvider>{children}</GoogleProvider>
+        </TooltipProvider>
       </body>
     </html>
   );

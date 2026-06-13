@@ -11,10 +11,6 @@ interface TooltipProps {
   delayDuration?: number;
 }
 
-const TooltipProvider = TooltipPrimitive.Provider;
-
-export { TooltipProvider };
-
 export function Tooltip({
   content,
   children,
