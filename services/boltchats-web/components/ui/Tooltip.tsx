@@ -1,6 +1,7 @@
 'use client';
 
 import type React from 'react';
+import { useRef } from 'react';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 
 interface TooltipProps {
@@ -10,27 +11,33 @@ interface TooltipProps {
   delayDuration?: number;
 }
 
+const TooltipProvider = TooltipPrimitive.Provider;
+
+export { TooltipProvider };
+
 export function Tooltip({
   content,
   children,
-  side = 'top',
+  side = 'left',
   delayDuration = 200,
 }: TooltipProps): React.JSX.Element {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
   return (
-    <TooltipPrimitive.Provider>
-      <TooltipPrimitive.Root delayDuration={delayDuration}>
-        <TooltipPrimitive.Trigger asChild>
-          {children}
-        </TooltipPrimitive.Trigger>
+    <TooltipPrimitive.Root delayDuration={delayDuration}>
+      <TooltipPrimitive.Trigger ref={triggerRef} asChild>
+        {children}
+      </TooltipPrimitive.Trigger>
+      <TooltipPrimitive.Portal>
         <TooltipPrimitive.Content
           side={side}
-          className="bg-zinc-900 text-zinc-100 text-sm px-3 py-1.5 rounded-md shadow-lg border border-zinc-700 z-50 animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
-          sideOffset={5}
+          sideOffset={8}
+          className="relative z-50 bg-zinc-900 text-zinc-100 text-xs px-2 py-1 rounded shadow-md border border-zinc-700 pointer-events-none animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=left]:translate-x-[-4px] data-[side=right]:translate-x-[4px]"
         >
           {content}
           <TooltipPrimitive.Arrow className="fill-zinc-900" />
         </TooltipPrimitive.Content>
-      </TooltipPrimitive.Root>
-    </TooltipPrimitive.Provider>
+      </TooltipPrimitive.Portal>
+    </TooltipPrimitive.Root>
   );
 }

@@ -155,10 +155,10 @@ export function MessageBubble({
             </div>
           </div>
         ) : (
-          <>
+          <div className="relative w-full">
             <div
               className={[
-                'rounded px-3 py-2 text-sm leading-relaxed break-words relative group',
+                'rounded px-3 py-2 text-sm leading-relaxed break-words relative group w-fit',
                 isMine
                   ? 'bg-indigo-600 text-white'
                   : 'bg-zinc-800 text-zinc-100 border border-zinc-700/60',
@@ -167,7 +167,7 @@ export function MessageBubble({
               {message.content}
 
               {showActions && message.confirmed !== false && (
-                <div className="absolute -right-8 top-0">
+                <div className={`absolute top-0 ${isMine ? 'left-0' : 'right-0'}`}>
                   <MessageActionMenu
                     messageId={message.id}
                     isMine={isMine}
@@ -178,12 +178,12 @@ export function MessageBubble({
                 </div>
               )}
               {isMine && message.confirmed === false && (
-                <div className="absolute -right-20 top-0 text-xs text-zinc-500 font-mono">
+                <div className="absolute -left-20 top-0 text-xs text-zinc-500 font-mono">
                   saving…
                 </div>
               )}
             </div>
-          </>
+          </div>
         )}
 
         <span className="px-1 text-[10px] font-mono text-zinc-700">

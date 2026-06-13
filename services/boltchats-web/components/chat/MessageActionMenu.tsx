@@ -47,11 +47,11 @@ export function MessageActionMenu({
   };
 
   return (
-    <div ref={menuRef} className="relative">
-      <Tooltip content="Message actions">
+    <div ref={menuRef} className="relative inline-flex">
+      <Tooltip content="Message actions" side="bottom">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="p-1 hover:bg-zinc-700 rounded transition-colors opacity-0 group-hover:opacity-100"
+          className="p-1 hover:bg-zinc-700 rounded transition-colors"
         >
           <svg
             width="16"
@@ -66,11 +66,11 @@ export function MessageActionMenu({
       </Tooltip>
 
       {isOpen && (
-        <div className="absolute right-0 top-8 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg z-40 min-w-[180px] overflow-hidden">
+        <div className="absolute left-0 top-8 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg z-40 min-w-[180px] overflow-hidden">
           {/* React Button */}
           {!isMine && (
             <div className="relative">
-              <Tooltip content="Add reaction">
+              <Tooltip content="Add reaction" side="right">
                 <button
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                   className="w-full text-left px-4 py-2 hover:bg-zinc-700 text-sm text-zinc-300 flex items-center gap-2 transition-colors"
@@ -98,7 +98,7 @@ export function MessageActionMenu({
 
           {/* Edit Button - Only for own messages */}
           {isMine && (
-            <Tooltip content="Edit message">
+            <Tooltip content="Edit message" side="right">
               <button
                 onClick={() => {
                   onEdit?.();
@@ -114,7 +114,7 @@ export function MessageActionMenu({
 
           {/* Delete Button - Only for own messages */}
           {isMine && (
-            <Tooltip content="Delete message">
+            <Tooltip content="Delete message" side="right">
               <button
                 onClick={() => {
                   onDelete?.();
@@ -131,7 +131,7 @@ export function MessageActionMenu({
           {/* React Button for own messages too (can react to own msg) */}
           {isMine && (
             <div className="relative border-t border-zinc-700">
-              <Tooltip content="Add reaction">
+              <Tooltip content="Add reaction" side="right">
                 <button
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                   className="w-full text-left px-4 py-2 hover:bg-zinc-700 text-sm text-zinc-300 flex items-center gap-2 transition-colors"
