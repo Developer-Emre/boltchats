@@ -23,7 +23,7 @@ export function RoomSidebar({
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-full w-56 flex-shrink-0 flex-col border-r border-zinc-800 bg-[#0c0c0e]">
+    <aside className="flex h-full w-56 flex-shrink-0 flex-col border-r border-zinc-800">
       {/* Header */}
       <div className="flex h-14 items-center border-b border-zinc-800 px-4">
         <Logo size="sm" />
@@ -52,12 +52,12 @@ export function RoomSidebar({
                 className={[
                   'flex items-center gap-1.5 rounded px-2 py-1.5 text-sm transition-colors',
                   isActive
-                    ? 'bg-indigo-600/15 text-indigo-300'
+                    ? 'bg-accent-soft text-accent'
                     : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-200',
                 ].join(' ')}
               >
                 <span
-                  className={`text-xs ${isActive ? 'text-indigo-500' : 'text-zinc-700'}`}
+                  className={`text-xs ${isActive ? 'text-accent' : 'text-zinc-700'}`}
                 >
                   #
                 </span>

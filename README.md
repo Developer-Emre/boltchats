@@ -7,7 +7,7 @@
 [![CI](https://github.com/Developer-Emre/boltchats/actions/workflows/ci.yml/badge.svg)](https://github.com/Developer-Emre/boltchats/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)
-![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)
+![Next.js](https://img.shields.io/badge/Next.js-16.2.6-black?logo=next.js)
 ![MongoDB](https://img.shields.io/badge/MongoDB-7-green?logo=mongodb)
 ![Redis](https://img.shields.io/badge/Redis-7-red?logo=redis)
 
@@ -31,7 +31,7 @@ Key design principles:
 ```
 ┌─────────────────┐     REST      ┌─────────────────┐
 │  boltchats-web  │ ────────────► │  boltchats-api  │
-│   (Next.js 14)  │               │   (FastAPI)     │
+│ (Next.js 16.2.6)│               │   (FastAPI)     │
 │                 │  WebSocket    ├─────────────────┤
 │                 │ ────────────► │  boltchats-ws   │
 └─────────────────┘               │   (FastAPI WS)  │
@@ -56,7 +56,7 @@ Key design principles:
 | `boltchats-api` | REST API — auth, users, rooms, message history | `8000` | FastAPI, Motor, JWT |
 | `boltchats-ws` | WebSocket server — real-time messaging | `8001` | FastAPI WS, Redis Pub/Sub |
 | `boltchats-storage` | Async message persistence worker | — | Redis Consumer, Motor |
-| `boltchats-web` | Frontend application | `3000` | Next.js 14, TypeScript |
+| `boltchats-web` | Frontend application | `3000` | Next.js 16.2.6, TypeScript |
 
 ---
 

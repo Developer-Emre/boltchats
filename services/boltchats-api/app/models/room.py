@@ -18,3 +18,5 @@ class RoomDocument(BaseModel):
     )
 
     model_config = {"populate_by_name": True}
+
+

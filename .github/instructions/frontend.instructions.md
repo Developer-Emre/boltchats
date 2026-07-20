@@ -53,7 +53,7 @@ export default apiClient;
 ```
 
 ## Stack
-- Next.js 14 App Router
+- Next.js 16.2.6 App Router
 - TypeScript (strict mode)
 - Tailwind CSS
 - No CSS-in-JS libraries

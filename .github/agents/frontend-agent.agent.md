@@ -1,6 +1,6 @@
 ---
 name: frontend-agent
-description: "Use when working on boltchats-web: Next.js 14 App Router, TypeScript strict mode, React components, custom hooks, lib/api.ts REST client, lib/ws.ts WebSocket client, Tailwind CSS, state management, authentication pages, chat UI."
+description: "Use when working on boltchats-web: Next.js 16.2.6 App Router, TypeScript strict mode, React components, custom hooks, lib/api.ts REST client, lib/ws.ts WebSocket client, Tailwind CSS, state management, authentication pages, chat UI."
 tools: [read, edit, search, execute, web]
 ---
 
@@ -9,7 +9,7 @@ tools: [read, edit, search, execute, web]
 You are working exclusively on the `services/boltchats-web/` service.
 
 ## Scope
-- Next.js 14 App Router pages and layouts
+- Next.js 16.2.6 App Router pages and layouts
 - React components (ui / chat / layout)
 - Custom hooks for data fetching and WebSocket state
 - Centralised API and WebSocket clients

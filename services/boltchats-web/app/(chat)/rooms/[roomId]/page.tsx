@@ -55,19 +55,19 @@ export default function RoomPage({ params }: PageProps): React.JSX.Element {
   }, [leave]);
 
   return (
-    <div className="flex h-full">
-      <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex h-full bg-bg-primary">
+      <div className="flex flex-1 flex-col overflow-hidden bg-bg-primary">
         <RoomHeader room={room} roomId={roomId} connected={connected} />
 
         {/* Join / Leave banner for non-members */}
         {room && !isMember && (
-          <div className="flex items-center justify-between border-b border-zinc-800 bg-indigo-950/30 px-4 py-2">
-            <p className="text-xs text-zinc-400">
+          <div className="flex items-center justify-between border-b border-border bg-surface px-4 py-2">
+            <p className="text-xs text-text-tertiary">
               You are not a member of this room.
             </p>
             <button
               onClick={handleJoin}
-              className="rounded bg-indigo-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-indigo-500"
+              className="rounded bg-accent px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-accent-hover"
             >
               Join
             </button>
@@ -81,7 +81,7 @@ export default function RoomPage({ params }: PageProps): React.JSX.Element {
         )}
 
         {roomError && (
-          <div className="flex flex-1 items-center justify-center text-zinc-600 text-sm">
+          <div className="flex flex-1 items-center justify-center text-text-tertiary text-sm">
             {roomError}
           </div>
         )}

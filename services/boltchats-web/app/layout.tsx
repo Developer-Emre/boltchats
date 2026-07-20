@@ -30,7 +30,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full`}
     >
-      <body className="h-full antialiased">
+      <body className="h-full antialiased bg-bg-primary">
         <TooltipProvider>
           <GoogleProvider>{children}</GoogleProvider>
         </TooltipProvider>

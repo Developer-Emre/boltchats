@@ -46,21 +46,21 @@ export default function ChatLayout({
   // Middleware has already confirmed a refresh cookie exists, so this is brief.
   if (!isReady) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#111113]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+      <div className="flex h-screen items-center justify-center bg-bg-primary">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#111113]">
+    <div className="flex h-screen overflow-hidden bg-bg-primary">
       <RoomSidebar
         rooms={rooms}
         onLogout={logout}
         onCreateRoom={() => setShowModal(true)}
         username={user?.username ?? user?.email ?? 'anonymous'}
       />
-      <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
+      <main className="flex flex-1 flex-col overflow-hidden bg-bg-primary">{children}</main>
       <Toaster />
       {showModal && (
         <CreateRoomModal

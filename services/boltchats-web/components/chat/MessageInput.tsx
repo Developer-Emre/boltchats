@@ -25,14 +25,17 @@ export function MessageInput({
 }: MessageInputProps): React.JSX.Element {
   const [value, setValue] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isBoldActive, setIsBoldActive] = useState(false);
+  const [isItalicActive, setIsItalicActive] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-resize textarea
+  // Auto-resize textarea (48px min, 120px max)
   useEffect((): void => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+    const newHeight = Math.min(el.scrollHeight, 120);
+    el.style.height = `${newHeight}px`;
   }, [value]);
 
   const submit = useCallback((): void => {
@@ -59,80 +62,185 @@ export function MessageInput({
 
   const handleSelectEmoji = useCallback((emoji: string): void => {
     setValue((prev) => prev + emoji);
-    // Focus textarea
     setTimeout(() => textareaRef.current?.focus(), 0);
   }, []);
+
+  const insertFormatting = useCallback((before: string, after: string = ''): void => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = value.substring(start, end);
+    const newValue =
+      value.substring(0, start) + before + selectedText + after + value.substring(end);
+
+    setValue(newValue);
+
+    // Restore cursor position
+    setTimeout(() => {
+      textarea.selectionStart = start + before.length;
+      textarea.selectionEnd = start + before.length + selectedText.length;
+      textarea.focus();
+    }, 0);
+  }, [value]);
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex items-end gap-2 border-t border-zinc-800 bg-[#0c0c0e] px-4 py-3"
+      className="border-t transition-colors duration-fast"
+      style={{
+        backgroundColor: 'var(--color-bg-secondary)',
+        borderColor: 'var(--color-border)',
+      }}
     >
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-          disabled={disabled}
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-zinc-700 bg-zinc-900 text-yellow-400 hover:bg-zinc-800 disabled:opacity-50"
-          title="Add emoji"
-        >
-          😊
-        </button>
-        {showEmojiPicker && (
-          <div className="absolute bottom-12 left-0 z-50">
-            <EmojiPicker
-              open={showEmojiPicker}
-              onEmojiClick={(e) => {
-                handleSelectEmoji(e.emoji);
-                setShowEmojiPicker(false);
-              }}
-              width={300}
-              height={400}
-              previewConfig={{ showPreview: false }}
-              searchPlaceholder="Search emoji..."
-            />
-          </div>
-        )}
-      </div>
-
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        disabled={disabled}
-        placeholder={`Message #${roomName}`}
-        rows={1}
-        className={[
-          'flex-1 resize-none overflow-hidden rounded border bg-zinc-900 px-3 py-2',
-          'text-sm text-zinc-100 placeholder-zinc-600',
-          'transition-colors focus:outline-none focus:ring-1',
-          'border-zinc-700 focus:border-indigo-500 focus:ring-indigo-500/20',
-          'disabled:opacity-50 min-h-[40px]',
-        ].join(' ')}
-      />
-
-      <button
-        type="submit"
-        disabled={disabled || !value.trim()}
-        aria-label="Send"
-        className={[
-          'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded',
-          'border border-indigo-700 bg-indigo-600/20 text-indigo-400',
-          'transition-colors hover:bg-indigo-600 hover:text-white',
-          'disabled:opacity-40 disabled:cursor-not-allowed',
-        ].join(' ')}
+      {/* Unified Container with border and padding */}
+      <div
+        className="mx-3 my-2 rounded-lg border transition-all duration-fast"
+        style={{
+          backgroundColor: 'var(--color-bg-secondary)',
+          borderColor: 'var(--color-border)',
+        }}
       >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 14 14"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path d="M12.5 7L1.5 1.5L4.5 7L1.5 12.5L12.5 7Z" fill="currentColor" />
-        </svg>
-      </button>
+        {/* Toolbar - Top Row */}
+        <div className="flex gap-1 px-2 pt-2 pb-1 border-b" style={{
+          borderColor: 'var(--color-border)',
+        }}>
+          <button
+            type="button"
+            onClick={() => {
+              insertFormatting('**', '**');
+              setIsBoldActive(!isBoldActive);
+            }}
+            className={[
+              'h-8 w-8 rounded-sm flex items-center justify-center text-sm transition-colors duration-fast',
+              'hover:bg-surface-hover focus:outline-2 focus:outline-offset-2 focus:outline-accent',
+              isBoldActive ? 'bg-accent-soft text-accent' : 'bg-transparent text-text-secondary',
+            ].join(' ')}
+            title="Bold (Cmd+B)"
+            disabled={disabled}
+          >
+            <strong>B</strong>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              insertFormatting('*', '*');
+              setIsItalicActive(!isItalicActive);
+            }}
+            className={[
+              'h-8 w-8 rounded-sm flex items-center justify-center text-sm transition-colors duration-fast',
+              'hover:bg-surface-hover focus:outline-2 focus:outline-offset-2 focus:outline-accent',
+              isItalicActive ? 'bg-accent-soft text-accent' : 'bg-transparent text-text-secondary',
+            ].join(' ')}
+            title="Italic (Cmd+I)"
+            disabled={disabled}
+          >
+            <em>I</em>
+          </button>
+
+          <div className="w-px bg-border mx-1" style={{
+            backgroundColor: 'var(--color-border)',
+          }} />
+
+          {/* Emoji Picker Button */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              disabled={disabled}
+              className="h-8 w-8 rounded-sm flex items-center justify-center text-sm transition-colors duration-fast bg-transparent text-text-secondary hover:bg-surface-hover focus:outline-2 focus:outline-offset-2 focus:outline-accent disabled:opacity-50"
+              title="Add emoji"
+            >
+              😊
+            </button>
+            {showEmojiPicker && (
+              <div className="absolute bottom-10 left-0 z-50">
+                <EmojiPicker
+                  open={showEmojiPicker}
+                  onEmojiClick={(e) => {
+                    handleSelectEmoji(e.emoji);
+                    setShowEmojiPicker(false);
+                  }}
+                  width={300}
+                  height={400}
+                  previewConfig={{ showPreview: false }}
+                  searchPlaceholder="Search emoji..."
+                />
+              </div>
+            )}
+          </div>
+
+          {/* File Upload Button */}
+          <button
+            type="button"
+            className="h-8 w-8 rounded-sm flex items-center justify-center text-sm transition-colors duration-fast bg-transparent text-text-secondary hover:bg-surface-hover focus:outline-2 focus:outline-offset-2 focus:outline-accent disabled:opacity-50"
+            title="Attach file"
+            disabled={disabled}
+          >
+            📎
+          </button>
+        </div>
+
+        {/* Input + Send Button - Bottom Row */}
+        <div className="flex items-end gap-2 px-2 py-2">
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            disabled={disabled}
+            placeholder={`Message #${roomName}`}
+            rows={1}
+            className={[
+              'flex-1 resize-none overflow-hidden bg-transparent',
+              'text-message text-text-primary placeholder-text-tertiary italic',
+              'focus:outline-none disabled:opacity-50',
+              'min-h-[32px] max-h-[120px]',
+            ].join(' ')}
+          />
+
+          {/* Send Button */}
+          <button
+            type="submit"
+            disabled={disabled || !value.trim()}
+            aria-label="Send"
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-sm transition-colors duration-fast focus:outline-2 focus:outline-offset-2 focus:outline-accent"
+            style={{
+              backgroundColor: disabled || !value.trim() ? 'var(--color-gray-300)' : 'var(--color-accent)',
+              color: disabled || !value.trim() ? 'var(--color-gray-600)' : 'white',
+              cursor: disabled || !value.trim() ? 'not-allowed' : 'pointer',
+              opacity: disabled || !value.trim() ? 0.6 : 1,
+            }}
+            onMouseEnter={(e) => {
+              if (!disabled && value.trim()) {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--color-accent-hover)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!disabled && value.trim()) {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--color-accent)';
+              }
+            }}
+            onMouseDown={(e) => {
+              if (!disabled && value.trim()) {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--color-accent-active)';
+              }
+            }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path d="M14 8L2 2L5 8L2 14L14 8Z" fill="currentColor" />
+            </svg>
+          </button>
+        </div>
+      </div>
     </form>
   );
 }

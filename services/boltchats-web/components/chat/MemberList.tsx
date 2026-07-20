@@ -110,7 +110,7 @@ export function MemberList({ roomId, memberIds: initialMemberIds }: MemberListPr
   const onlineCount = isLoading ? null : (presence?.count ?? 0);
 
   return (
-    <aside className="flex h-full w-48 flex-shrink-0 flex-col border-l border-zinc-800 bg-[#0c0c0e]">
+    <aside className="flex h-full w-48 flex-shrink-0 flex-col border-l border-zinc-800">
       <div className="flex h-14 items-center border-b border-zinc-800 px-4">
         <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">
           Members

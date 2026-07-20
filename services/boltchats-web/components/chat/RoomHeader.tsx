@@ -12,10 +12,10 @@ function StatusDot({ connected }: { connected: boolean }): React.JSX.Element {
     <span className="flex items-center gap-1.5 text-xs font-mono">
       <span
         className={`h-1.5 w-1.5 rounded-full ${
-          connected ? 'bg-green-400' : 'bg-zinc-600 animate-pulse'
+          connected ? 'bg-presence-active' : 'bg-text-tertiary animate-pulse'
         }`}
       />
-      <span className={connected ? 'text-zinc-500' : 'text-zinc-700'}>
+      <span className={connected ? 'text-text-secondary' : 'text-text-tertiary'}>
         {connected ? 'live' : 'connecting…'}
       </span>
     </span>
@@ -28,20 +28,20 @@ export function RoomHeader({ room, roomId, connected }: RoomHeaderProps): React.
   const memberCount = room?.member_ids.length ?? null;
 
   return (
-    <header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-zinc-800 px-4 gap-4">
+    <header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-border px-4 gap-4">
       <div className="flex min-w-0 items-center gap-3">
         <div className="flex min-w-0 flex-col">
           <div className="flex items-center gap-1.5">
-            <span className="text-zinc-600">#</span>
-            <h1 className="truncate text-sm font-semibold text-zinc-200">{name}</h1>
+            <span className="text-text-tertiary">#</span>
+            <h1 className="truncate text-sm font-semibold text-text-primary">{name}</h1>
             {memberCount !== null && (
-              <span className="ml-1 text-[10px] font-mono text-zinc-700">
+              <span className="ml-1 text-[10px] font-mono text-text-tertiary">
                 {memberCount} {memberCount === 1 ? 'member' : 'members'}
               </span>
             )}
           </div>
           {description && (
-            <p className="truncate text-[11px] text-zinc-600">{description}</p>
+            <p className="truncate text-[11px] text-text-tertiary">{description}</p>
           )}
         </div>
       </div>

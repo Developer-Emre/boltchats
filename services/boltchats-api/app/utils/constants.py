@@ -20,6 +20,10 @@ class Collection(StrEnum):
     ROOMS = "rooms"
     MESSAGES = "messages"
     REACTIONS = "reactions"
+    WORKSPACES = "workspaces"
+    CHANNELS = "channels"
+    DIRECT_MESSAGES = "direct_messages"
+    INVITATIONS = "invitations"
 
 
 class ErrorMessage(StrEnum):
@@ -33,3 +37,9 @@ class ErrorMessage(StrEnum):
     ROOM_NOT_FOUND = "Room not found"
     OWNER_CANNOT_LEAVE = "Room owner cannot leave the room"
     INVALID_ID = "Invalid resource ID"
+    WORKSPACE_NOT_FOUND = "Workspace not found"
+    WORKSPACE_OWNER_ONLY = "Only workspace owner can perform this action"
+    WORKSPACE_ACCESS_DENIED = "You do not have access to this workspace"
+    CHANNEL_NOT_FOUND = "Channel not found"
+    INVITATION_NOT_FOUND = "Invitation not found"
+    INVITATION_EXPIRED = "Invitation has expired"

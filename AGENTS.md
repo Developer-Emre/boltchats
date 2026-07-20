@@ -14,7 +14,7 @@ boltchats, gerçek zamanlı bir chat platformudur. 4 servisten oluşur:
 | `boltchats-api` | REST API — auth, kullanıcılar, odalar, mesaj geçmişi | 8000 |
 | `boltchats-ws` | WebSocket — gerçek zamanlı mesajlaşma | 8001 |
 | `boltchats-storage` | Async mesaj kalıcılık worker'ı | — |
-| `boltchats-web` | Next.js 14 frontend | 3000 |
+| `boltchats-web` | Next.js 16.2.6 frontend | 3000 |
 
 ---
 
