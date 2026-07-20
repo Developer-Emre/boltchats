@@ -21,6 +21,8 @@ from app.routers import (
     channels,
     direct_messages,
     invitations,
+    channel_messages,
+    dm_messages,
 )
 from app.utils.constants import SERVICE_NAME
 
@@ -62,6 +64,8 @@ app.include_router(workspaces.router)
 app.include_router(channels.router)
 app.include_router(direct_messages.router)
 app.include_router(invitations.router)
+app.include_router(channel_messages.router)
+app.include_router(dm_messages.router)
 
 
 @app.get("/health")
