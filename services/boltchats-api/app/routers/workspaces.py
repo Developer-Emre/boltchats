@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query, status
 
 from app.core.database import get_database
 from app.middlewares.auth_middleware import get_current_user
+from app.middlewares.workspace_middleware import verify_workspace_member
 from app.schemas.workspace_schema import (
     CreateWorkspaceRequest,
     UpdateWorkspaceRequest,
@@ -37,20 +38,18 @@ async def list_workspaces(
 
 @router.get("/{workspace_id}", response_model=WorkspaceDetailResponse)
 async def get_workspace(
-    workspace_id: str,
+    workspace_id: str = Depends(verify_workspace_member),
     user_id: str = Depends(get_current_user),
     db=Depends(get_database),
 ) -> WorkspaceDetailResponse:
     """Get workspace details by ID."""
-    # Verify user has access
-    await workspace_service.verify_member_access(workspace_id, user_id, db)
     return await workspace_service.get_detail(workspace_id, db)
 
 
 @router.patch("/{workspace_id}", response_model=WorkspaceResponse)
 async def update_workspace(
-    workspace_id: str,
-    payload: UpdateWorkspaceRequest,
+    workspace_id: str = Depends(verify_workspace_member),
+    payload: UpdateWorkspaceRequest = ...,
     user_id: str = Depends(get_current_user),
     db=Depends(get_database),
 ) -> WorkspaceResponse:
@@ -60,8 +59,8 @@ async def update_workspace(
 
 @router.post("/{workspace_id}/members/{member_id}", response_model=WorkspaceResponse)
 async def add_workspace_member(
-    workspace_id: str,
-    member_id: str,
+    workspace_id: str = Depends(verify_workspace_member),
+    member_id: str = ...,
     user_id: str = Depends(get_current_user),
     db=Depends(get_database),
 ) -> WorkspaceResponse:
@@ -75,8 +74,8 @@ async def add_workspace_member(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def remove_workspace_member(
-    workspace_id: str,
-    member_id: str,
+    workspace_id: str = Depends(verify_workspace_member),
+    member_id: str = ...,
     user_id: str = Depends(get_current_user),
     db=Depends(get_database),
 ) -> None:
