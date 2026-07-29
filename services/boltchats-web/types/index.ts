@@ -16,6 +16,109 @@ export interface User {
   username: string;
   email: string;
   is_active: boolean;
+  workspaces?: string[];
+}
+
+// ── Workspace & Channel (v2 API) ──────────────────────────────────────────
+
+export interface WorkspaceMember {
+  user_id: string;
+  role: 'owner' | 'admin' | 'member' | 'guest';
+  joined_at: string;
+  is_active: boolean;
+}
+
+export interface WorkspaceSettings {
+  require_email_verification: boolean;
+  allow_external_sharing: boolean;
+  sso_enabled: boolean;
+  message_retention_days: number;
+  file_retention_days: number;
+  max_upload_size_mb: number;
+  default_channel_visibility: 'public' | 'private';
+  guest_can_post: boolean;
+  guest_can_download_files: boolean;
+}
+
+export interface WorkspaceBilling {
+  plan: 'free' | 'pro' | 'enterprise';
+  billing_email?: string;
+  billing_cycle_start?: string;
+  billing_cycle_end?: string;
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  icon_url?: string;
+  owner_id: string;
+  members: WorkspaceMember[];
+  settings?: WorkspaceSettings;
+  billing?: WorkspaceBilling;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChannelSettings {
+  can_post: string[];
+  can_invite: string[];
+  thread_replies_allowed: boolean;
+  auto_join_new_members: boolean;
+  posting_restrictions: 'none' | 'mods' | 'owner';
+}
+
+export interface Channel {
+  id: string;
+  workspace_id: string;
+  name: string;
+  display_name: string;
+  description: string;
+  type: 'public' | 'private' | 'direct_message' | 'shared_channel';
+  topic: string;
+  purpose: string;
+  owner_id: string;
+  members: string[];
+  settings: ChannelSettings;
+  is_archived: boolean;
+  archived_at?: string;
+  archived_by?: string;
+  is_default: boolean;
+  message_count: number;
+  member_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DirectMessageGroup {
+  id: string;
+  workspace_id: string;
+  type: 'direct_message';
+  participants: string[];
+  created_by: string;
+  read_status: Record<string, { read_at: string; read_message_id: string }>;
+  last_message_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Invitation {
+  id: string;
+  workspace_id: string;
+  invited_by: string;
+  invited_email?: string;
+  invited_user_id?: string;
+  role: 'member' | 'admin' | 'guest';
+  code: string;
+  code_expires_at: string;
+  status: 'pending' | 'accepted' | 'declined' | 'revoked';
+  accepted_at?: string;
+  accepted_by?: string;
+  declined_at?: string;
+  revoked_at?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AuthTokens {

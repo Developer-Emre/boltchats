@@ -1,5 +1,8 @@
 import type {
   AccessTokenResponse,
+  Channel,
+  DirectMessageGroup,
+  Invitation,
   Message,
   OnlineUsers,
   Room,
@@ -8,11 +11,12 @@ import type {
   UpdateUserPayload,
   User,
   UserPresence,
+  Workspace,
 } from '@/types';
 import { clearToken, getToken, setToken } from '@/store/auth';
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v2';
 
 export class ApiError extends Error {
   constructor(
@@ -237,6 +241,228 @@ export const presenceApi = {
     apiClient.get<UserPresence>(`/presence/users/${userId}`),
   getOnline: (): Promise<OnlineUsers> =>
     apiClient.get<OnlineUsers>('/presence/online'),
+};
+
+// ── V2 API (Discord-like: workspaces, channels, DMs) ───────────────────────
+
+interface ListResponse<T> {
+  items: T[];
+  next_cursor: string | null;
+}
+
+export const workspacesApi = {
+  list: (): Promise<Workspace[]> =>
+    apiClient.get<ListResponse<Workspace>>('/workspaces').then((res) => res.items),
+  
+  get: (workspaceId: string): Promise<Workspace> =>
+    apiClient.get<Workspace>(`/workspaces/${workspaceId}`),
+  
+  create: (name: string, description: string): Promise<Workspace> =>
+    apiClient.post<Workspace>('/workspaces', { name, description }),
+  
+  update: (workspaceId: string, name: string, description: string): Promise<Workspace> =>
+    apiClient.patch<Workspace>(`/workspaces/${workspaceId}`, { name, description }),
+  
+  addMember: (workspaceId: string, userId: string, role: string): Promise<Workspace> =>
+    apiClient.post<Workspace>(`/workspaces/${workspaceId}/members`, { user_id: userId, role }),
+  
+  removeMember: (workspaceId: string, userId: string): Promise<void> =>
+    apiClient.delete<void>(`/workspaces/${workspaceId}/members/${userId}`),
+  
+  updateMemberRole: (workspaceId: string, userId: string, role: string): Promise<Workspace> =>
+    apiClient.patch<Workspace>(`/workspaces/${workspaceId}/members/${userId}`, { role }),
+};
+
+export const channelsApi = {
+  list: (workspaceId: string): Promise<Channel[]> =>
+    apiClient
+      .get<ListResponse<Channel>>(`/workspaces/${workspaceId}/channels`)
+      .then((res) => res.items),
+  
+  get: (workspaceId: string, channelId: string): Promise<Channel> =>
+    apiClient.get<Channel>(`/workspaces/${workspaceId}/channels/${channelId}`),
+  
+  create: (
+    workspaceId: string,
+    name: string,
+    description: string,
+    type: 'public' | 'private' = 'public',
+  ): Promise<Channel> =>
+    apiClient.post<Channel>(`/workspaces/${workspaceId}/channels`, {
+      name,
+      description,
+      type,
+    }),
+  
+  update: (
+    workspaceId: string,
+    channelId: string,
+    name: string,
+    description: string,
+  ): Promise<Channel> =>
+    apiClient.patch<Channel>(`/workspaces/${workspaceId}/channels/${channelId}`, {
+      name,
+      description,
+    }),
+  
+  archive: (workspaceId: string, channelId: string): Promise<Channel> =>
+    apiClient.post<Channel>(
+      `/workspaces/${workspaceId}/channels/${channelId}/archive`,
+      {},
+    ),
+  
+  unarchive: (workspaceId: string, channelId: string): Promise<Channel> =>
+    apiClient.post<Channel>(
+      `/workspaces/${workspaceId}/channels/${channelId}/unarchive`,
+      {},
+    ),
+  
+  addMember: (
+    workspaceId: string,
+    channelId: string,
+    userId: string,
+  ): Promise<Channel> =>
+    apiClient.post<Channel>(
+      `/workspaces/${workspaceId}/channels/${channelId}/members`,
+      { user_id: userId },
+    ),
+  
+  removeMember: (
+    workspaceId: string,
+    channelId: string,
+    userId: string,
+  ): Promise<void> =>
+    apiClient.delete<void>(
+      `/workspaces/${workspaceId}/channels/${channelId}/members/${userId}`,
+    ),
+};
+
+export const directMessagesApi = {
+  list: (workspaceId: string): Promise<DirectMessageGroup[]> =>
+    apiClient
+      .get<ListResponse<DirectMessageGroup>>(`/workspaces/${workspaceId}/dms`)
+      .then((res) => res.items),
+  
+  get: (workspaceId: string, dmId: string): Promise<DirectMessageGroup> =>
+    apiClient.get<DirectMessageGroup>(`/workspaces/${workspaceId}/dms/${dmId}`),
+  
+  create: (workspaceId: string, participantIds: string[]): Promise<DirectMessageGroup> =>
+    apiClient.post<DirectMessageGroup>(`/workspaces/${workspaceId}/dms`, {
+      participant_ids: participantIds,
+    }),
+};
+
+export const invitationsApi = {
+  create: (
+    workspaceId: string,
+    invitedEmail: string,
+    role: string,
+  ): Promise<Invitation> =>
+    apiClient.post<Invitation>(`/workspaces/${workspaceId}/invitations`, {
+      invited_email: invitedEmail,
+      role,
+    }),
+  
+  list: (workspaceId: string): Promise<Invitation[]> =>
+    apiClient
+      .get<ListResponse<Invitation>>(`/workspaces/${workspaceId}/invitations`)
+      .then((res) => res.items),
+  
+  accept: (workspaceId: string, invitationCode: string): Promise<Workspace> =>
+    apiClient.post<Workspace>(
+      `/workspaces/${workspaceId}/invitations/${invitationCode}/accept`,
+      {},
+    ),
+  
+  decline: (workspaceId: string, invitationCode: string): Promise<void> =>
+    apiClient.post<void>(
+      `/workspaces/${workspaceId}/invitations/${invitationCode}/decline`,
+      {},
+    ),
+  
+  revoke: (workspaceId: string, invitationId: string): Promise<void> =>
+    apiClient.delete<void>(
+      `/workspaces/${workspaceId}/invitations/${invitationId}`,
+    ),
+};
+
+// V2 Message API (per channel/DM)
+export const channelMessagesApi = {
+  list: (workspaceId: string, channelId: string): Promise<Message[]> =>
+    apiClient
+      .get<ListResponse<Message>>(
+        `/workspaces/${workspaceId}/channels/${channelId}/messages`,
+      )
+      .then((res) => res.items),
+  
+  listWithCursor: (
+    workspaceId: string,
+    channelId: string,
+    before?: string,
+  ): Promise<ListResponse<Message>> =>
+    apiClient.get<ListResponse<Message>>(
+      `/workspaces/${workspaceId}/channels/${channelId}/messages${before ? `?before=${before}` : ''}`,
+    ),
+  
+  create: (workspaceId: string, channelId: string, content: string): Promise<Message> =>
+    apiClient.post<Message>(
+      `/workspaces/${workspaceId}/channels/${channelId}/messages`,
+      { content },
+    ),
+  
+  edit: (
+    workspaceId: string,
+    channelId: string,
+    messageId: string,
+    content: string,
+  ): Promise<Message> =>
+    apiClient.patch<Message>(
+      `/workspaces/${workspaceId}/channels/${channelId}/messages/${messageId}`,
+      { content },
+    ),
+  
+  delete: (workspaceId: string, channelId: string, messageId: string): Promise<void> =>
+    apiClient.delete<void>(
+      `/workspaces/${workspaceId}/channels/${channelId}/messages/${messageId}`,
+    ),
+};
+
+export const dmMessagesApi = {
+  list: (workspaceId: string, dmId: string): Promise<Message[]> =>
+    apiClient
+      .get<ListResponse<Message>>(`/workspaces/${workspaceId}/dms/${dmId}/messages`)
+      .then((res) => res.items),
+  
+  listWithCursor: (
+    workspaceId: string,
+    dmId: string,
+    before?: string,
+  ): Promise<ListResponse<Message>> =>
+    apiClient.get<ListResponse<Message>>(
+      `/workspaces/${workspaceId}/dms/${dmId}/messages${before ? `?before=${before}` : ''}`,
+    ),
+  
+  create: (workspaceId: string, dmId: string, content: string): Promise<Message> =>
+    apiClient.post<Message>(
+      `/workspaces/${workspaceId}/dms/${dmId}/messages`,
+      { content },
+    ),
+  
+  edit: (
+    workspaceId: string,
+    dmId: string,
+    messageId: string,
+    content: string,
+  ): Promise<Message> =>
+    apiClient.patch<Message>(
+      `/workspaces/${workspaceId}/dms/${dmId}/messages/${messageId}`,
+      { content },
+    ),
+  
+  delete: (workspaceId: string, dmId: string, messageId: string): Promise<void> =>
+    apiClient.delete<void>(
+      `/workspaces/${workspaceId}/dms/${dmId}/messages/${messageId}`,
+    ),
 };
 
 export default apiClient;
