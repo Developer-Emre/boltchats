@@ -11,19 +11,7 @@ from app.exceptions.handlers import register_exception_handlers
 from app.middlewares.cors import register_cors
 from app.middlewares.logging import LoggingMiddleware, configure_structlog
 from app.middlewares.rate_limit import RateLimitMiddleware
-from app.routers import (
-    auth,
-    messages,
-    presence,
-    rooms,
-    users,
-    workspaces,
-    channels,
-    direct_messages,
-    invitations,
-    channel_messages,
-    dm_messages,
-)
+from app.routers import auth
 from app.utils.constants import SERVICE_NAME
 
 configure_structlog()
@@ -53,19 +41,8 @@ register_exception_handlers(app)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(LoggingMiddleware)
 
+# Auth router (legacy, will be updated in Step 2)
 app.include_router(auth.router, prefix="/api/v1")
-app.include_router(users.router, prefix="/api/v1")
-app.include_router(rooms.router, prefix="/api/v1")
-app.include_router(messages.router, prefix="/api/v1")
-app.include_router(presence.router, prefix="/api/v1")
-
-# v2 API - B2B/Discord-like
-app.include_router(workspaces.router)
-app.include_router(channels.router)
-app.include_router(direct_messages.router)
-app.include_router(invitations.router)
-app.include_router(channel_messages.router)
-app.include_router(dm_messages.router)
 
 
 @app.get("/health")

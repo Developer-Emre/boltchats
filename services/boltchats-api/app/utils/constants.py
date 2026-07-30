@@ -1,11 +1,5 @@
 from enum import StrEnum
 
-# Redis key prefixes
-REDIS_PREFIX_REFRESH_TOKEN: str = "refresh_token:"
-REDIS_PREFIX_RATE_LIMIT: str = "rate_limit:"
-REDIS_PREFIX_PRESENCE_ROOM: str = "presence:room:"
-REDIS_KEY_PRESENCE_ONLINE: str = "presence:online"
-
 # Service name
 SERVICE_NAME: str = "boltchats-api"
 
@@ -15,31 +9,7 @@ class TokenType(StrEnum):
     REFRESH = "refresh"
 
 
-class Collection(StrEnum):
-    USERS = "users"
-    ROOMS = "rooms"
-    MESSAGES = "messages"
-    REACTIONS = "reactions"
-    WORKSPACES = "workspaces"
-    CHANNELS = "channels"
-    DIRECT_MESSAGES = "direct_messages"
-    INVITATIONS = "invitations"
+# Re-export SparkQuark constants for convenience
+from app.utils.sparkquark_constants import Collection, ErrorMessage, RedisKey
 
-
-class ErrorMessage(StrEnum):
-    USER_NOT_FOUND = "User not found"
-    USER_ALREADY_EXISTS = "User already exists"
-    INVALID_CREDENTIALS = "Invalid credentials"
-    INVALID_TOKEN = "Invalid or expired token"
-    REFRESH_TOKEN_NOT_FOUND = "Refresh token not found or expired"
-    RATE_LIMIT_EXCEEDED = "Rate limit exceeded"
-    UNAUTHORIZED = "Not authenticated"
-    ROOM_NOT_FOUND = "Room not found"
-    OWNER_CANNOT_LEAVE = "Room owner cannot leave the room"
-    INVALID_ID = "Invalid resource ID"
-    WORKSPACE_NOT_FOUND = "Workspace not found"
-    WORKSPACE_OWNER_ONLY = "Only workspace owner can perform this action"
-    WORKSPACE_ACCESS_DENIED = "You do not have access to this workspace"
-    CHANNEL_NOT_FOUND = "Channel not found"
-    INVITATION_NOT_FOUND = "Invitation not found"
-    INVITATION_EXPIRED = "Invitation has expired"
+__all__ = ["SERVICE_NAME", "TokenType", "Collection", "ErrorMessage", "RedisKey"]
