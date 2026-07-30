@@ -1,208 +1,255 @@
-import asyncio
-import re
-import structlog
-from functools import partial
-from jose import JWTError
-from pymongo.errors import PyMongoError
-from redis.asyncio import Redis
+"""
+Authentication Service
+
+Login, register, token management, password hashing
+"""
+
+from datetime import datetime, timedelta, timezone
+
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from passlib.context import CryptContext
+from pydantic import EmailStr
 
 from app.core.config import settings
-from app.core.security import (
-    create_access_token,
-    create_refresh_token,
-    decode_token,
-    hash_password,
-    verify_password,
-)
-from app.exceptions.http_exceptions import (
-    ConflictException,
-    DatabaseException,
-    UnauthorizedException,
-)
-from app.schemas.auth_schema import (
-    AccessTokenResponse,
-    AuthResponse,
-    GoogleAuthRequest,
-    LoginRequest,
-    RefreshRequest,
-    RegisterRequest,
-    UserInfo,
-)
-from app.utils.constants import (
-    REDIS_PREFIX_REFRESH_TOKEN,
-    Collection,
-    ErrorMessage,
-    TokenType,
+from app.core.security import create_token
+from app.models.identity import Member, MemberStatus, Organization
+from app.repositories import (
+    InvitationRepository,
+    MemberRepository,
+    OrganizationRepository,
 )
 
-logger = structlog.get_logger()
+from .base import BaseService, ConflictError, InvalidTokenError, NotFoundError, UnauthorizedError
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-async def google_login(payload: GoogleAuthRequest, db, redis: Redis) -> AuthResponse:
-    """Verify a Google id_token, then find-or-create the user."""
-    from google.auth.transport import requests as google_requests
-    from google.oauth2 import id_token as google_id_token
+class AuthService(BaseService):
+    """Authentication and authorization service"""
 
-    if not settings.google_client_id:
-        raise UnauthorizedException("Google login is not configured on this server")
+    def __init__(self, db: AsyncIOMotorDatabase):
+        super().__init__(db)
+        self.members = MemberRepository(db)
+        self.organizations = OrganizationRepository(db)
+        self.invitations = InvitationRepository(db)
 
-    try:
-        # verify_oauth2_token is blocking — run in executor to avoid blocking the loop
-        verify = partial(
-            google_id_token.verify_oauth2_token,
-            payload.id_token,
-            google_requests.Request(),
-            settings.google_client_id,
+    async def register(
+        self,
+        email: EmailStr,
+        password: str,
+        full_name: str,
+        organization_name: str,
+    ) -> dict:
+        """Register new user with organization.
+        
+        Args:
+            email: User email
+            password: Password (will be hashed)
+            full_name: User's full name
+            organization_name: Organization name
+            
+        Returns:
+            {
+                "access_token": str,
+                "refresh_token": str,
+                "organization_id": str,
+                "user_id": str,
+            }
+        """
+        # Check if member exists with this email
+        existing = await self.members.find({
+            "email": email
+        })
+        if existing:
+            raise ConflictError(f"User with email {email} already exists")
+
+        # Hash password
+        hashed_password = pwd_context.hash(password)
+
+        # Create organization
+        org = Organization(
+            name=organization_name,
+            slug=organization_name.lower().replace(" ", "-"),
+            owner_id=email,  # Use email as temp user_id
+            settings={"language": "en", "timezone": "UTC"},
         )
-        id_info: dict = await asyncio.get_event_loop().run_in_executor(None, verify)
-    except ValueError as exc:
-        raise UnauthorizedException("Invalid Google token") from exc
+        org_id = await self.organizations.create(org)
 
-    email: str = id_info["email"]
-    google_sub: str = id_info["sub"]
+        # Create member (organization owner)
+        member = Member(
+            organization_id=org_id,
+            user_id=email,
+            status=MemberStatus.ACTIVE,
+            team_ids=[],
+        )
+        member_id = await self.members.create(member)
 
-    # Derive a clean username from the Google display name or email prefix
-    raw_name: str = id_info.get("name", email.split("@")[0])
-    username: str = re.sub(r"[^a-z0-9_]", "_", raw_name.lower().replace(" ", "_"))
+        # Store password hash in Redis (temporary, will be moved to Users collection)
+        from app.core.redis import get_redis
+        redis = get_redis()
+        await redis.hset(f"user:{email}", "password_hash", hashed_password)
+        await redis.hset(f"user:{email}", "member_id", member_id)
+        await redis.hset(f"user:{email}", "organization_id", org_id)
 
-    try:
-        user = await db[Collection.USERS].find_one({"email": email})
-    except PyMongoError as exc:
-        raise DatabaseException("Failed to query users") from exc
+        # Generate tokens
+        access_token = create_token(
+            data={"sub": email, "org_id": org_id, "member_id": member_id},
+            expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
+        )
+        refresh_token = create_token(
+            data={"sub": email, "org_id": org_id, "type": "refresh"},
+            expires_delta=timedelta(days=settings.refresh_token_expire_days),
+        )
 
-    if user:
-        user_id = str(user["_id"])
-        # Backfill google_id on first Google login for an email-registered account
-        if not user.get("google_id"):
-            await db[Collection.USERS].update_one(
-                {"_id": user["_id"]},
-                {"$set": {"google_id": google_sub}},
-            )
-    else:
-        doc = {
-            "username": username,
-            "email": email,
-            "google_id": google_sub,
-            "hashed_password": None,
-            "is_active": True,
+        # Store refresh token in Redis
+        await redis.setex(
+            f"refresh_token:{email}",
+            settings.refresh_token_expire_days * 86400,
+            refresh_token,
+        )
+
+        await self.log_action("user_registered", resource_id=email, details={
+            "organization_id": org_id,
+            "member_id": member_id,
+        })
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "organization_id": org_id,
+            "user_id": member_id,
         }
+
+    async def login(
+        self,
+        email: EmailStr,
+        password: str,
+    ) -> dict:
+        """Login with email and password.
+        
+        Args:
+            email: User email
+            password: Password
+            
+        Returns:
+            {
+                "access_token": str,
+                "refresh_token": str,
+                "organization_id": str,
+                "user_id": str,
+            }
+        """
+        from app.core.redis import get_redis
+        redis = get_redis()
+
+        # Get password hash from Redis
+        password_hash = await redis.hget(f"user:{email}", "password_hash")
+        if not password_hash:
+            raise UnauthorizedError("Invalid email or password")
+
+        # Verify password
+        if not pwd_context.verify(password, password_hash):
+            raise UnauthorizedError("Invalid email or password")
+
+        # Get member info
+        member_id = await redis.hget(f"user:{email}", "member_id")
+        org_id = await redis.hget(f"user:{email}", "organization_id")
+
+        if not member_id or not org_id:
+            raise NotFoundError("User", email)
+
+        # Generate tokens
+        access_token = create_token(
+            data={"sub": email, "org_id": org_id, "member_id": member_id},
+            expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
+        )
+        refresh_token = create_token(
+            data={"sub": email, "org_id": org_id, "type": "refresh"},
+            expires_delta=timedelta(days=settings.refresh_token_expire_days),
+        )
+
+        # Store refresh token
+        await redis.setex(
+            f"refresh_token:{email}",
+            settings.refresh_token_expire_days * 86400,
+            refresh_token,
+        )
+
+        await self.log_action("user_login", resource_id=email)
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "organization_id": str(org_id),
+            "user_id": str(member_id),
+        }
+
+    async def refresh_token(self, refresh_token: str) -> dict:
+        """Refresh access token using refresh token.
+        
+        Args:
+            refresh_token: Refresh token
+            
+        Returns:
+            {
+                "access_token": str,
+            }
+        """
+        from app.core.security import verify_token
+        from app.core.redis import get_redis
+        
+        redis = get_redis()
+
+        # Verify refresh token
         try:
-            result = await db[Collection.USERS].insert_one(doc)
-        except PyMongoError as exc:
-            raise DatabaseException("Failed to create user") from exc
+            payload = verify_token(refresh_token)
+        except Exception:
+            raise InvalidTokenError()
 
-        user_id = str(result.inserted_id)
-        user = {"username": username, "email": email}
+        email = payload.get("sub")
+        org_id = payload.get("org_id")
+        token_type = payload.get("type")
 
-    access_token = create_access_token(user_id)
-    refresh_token = create_refresh_token(user_id)
+        if token_type != "refresh":
+            raise InvalidTokenError()
 
-    ttl = settings.refresh_token_expire_days * 86400
-    redis_key = f"{REDIS_PREFIX_REFRESH_TOKEN}{user_id}"
-    await redis.set(redis_key, refresh_token, ex=ttl)
+        # Check token in Redis
+        stored_token = await redis.get(f"refresh_token:{email}")
+        if stored_token != refresh_token:
+            raise InvalidTokenError()
 
-    await logger.ainfo("google_login", user_id=user_id, email=email)
-    return AuthResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user=UserInfo(id=user_id, username=user["username"], email=email),
-    )
+        # Get member info
+        member_id = await redis.hget(f"user:{email}", "member_id")
 
+        # Generate new access token
+        new_access_token = create_token(
+            data={"sub": email, "org_id": org_id, "member_id": member_id},
+            expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
+        )
 
-async def register(payload: RegisterRequest, db, redis: Redis) -> AuthResponse:
-    try:
-        existing = await db[Collection.USERS].find_one({"email": payload.email})
-    except PyMongoError as exc:
-        raise DatabaseException("Failed to query users") from exc
+        return {
+            "access_token": new_access_token,
+        }
 
-    if existing:
-        raise ConflictException(ErrorMessage.USER_ALREADY_EXISTS)
+    async def logout(self, email: EmailStr) -> None:
+        """Logout user.
+        
+        Args:
+            email: User email
+        """
+        from app.core.redis import get_redis
+        redis = get_redis()
 
-    hashed = hash_password(payload.password)
-    doc = {
-        "username": payload.username,
-        "email": payload.email,
-        "hashed_password": hashed,
-        "is_active": True,
-    }
+        # Delete refresh token
+        await redis.delete(f"refresh_token:{email}")
 
-    try:
-        result = await db[Collection.USERS].insert_one(doc)
-    except PyMongoError as exc:
-        raise DatabaseException("Failed to create user") from exc
+        await self.log_action("user_logout", resource_id=email)
 
-    user_id = str(result.inserted_id)
-    access_token = create_access_token(user_id)
-    refresh_token = create_refresh_token(user_id)
+    def hash_password(self, password: str) -> str:
+        """Hash password."""
+        return pwd_context.hash(password)
 
-    ttl = settings.refresh_token_expire_days * 86400
-    redis_key = f"{REDIS_PREFIX_REFRESH_TOKEN}{user_id}"
-    await redis.set(redis_key, refresh_token, ex=ttl)
-
-    await logger.ainfo("user_registered", user_id=user_id, email=payload.email)
-    return AuthResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user=UserInfo(id=user_id, username=payload.username, email=payload.email),
-    )
-
-
-async def login(payload: LoginRequest, db, redis: Redis) -> AuthResponse:
-    try:
-        user = await db[Collection.USERS].find_one({"email": payload.email})
-    except PyMongoError as exc:
-        raise DatabaseException("Failed to query users") from exc
-
-    if not user or not verify_password(payload.password, user["hashed_password"]):
-        raise UnauthorizedException(ErrorMessage.INVALID_CREDENTIALS)
-
-    user_id = str(user["_id"])
-    access_token = create_access_token(user_id)
-    refresh_token = create_refresh_token(user_id)
-
-    ttl = settings.refresh_token_expire_days * 86400
-    redis_key = f"{REDIS_PREFIX_REFRESH_TOKEN}{user_id}"
-    await redis.set(redis_key, refresh_token, ex=ttl)
-
-    await logger.ainfo("user_logged_in", user_id=user_id)
-    return AuthResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user=UserInfo(id=user_id, username=user["username"], email=user["email"]),
-    )
-
-
-async def refresh(payload: RefreshRequest, redis: Redis) -> AccessTokenResponse:
-    try:
-        claims = decode_token(payload.refresh_token)
-    except JWTError:
-        raise UnauthorizedException(ErrorMessage.INVALID_TOKEN)
-
-    if claims.get("type") != TokenType.REFRESH:
-        raise UnauthorizedException(ErrorMessage.INVALID_TOKEN)
-
-    user_id: str = claims["sub"]
-    redis_key = f"{REDIS_PREFIX_REFRESH_TOKEN}{user_id}"
-    stored = await redis.get(redis_key)
-
-    if stored != payload.refresh_token:
-        raise UnauthorizedException(ErrorMessage.REFRESH_TOKEN_NOT_FOUND)
-
-    access_token = create_access_token(user_id)
-    await logger.ainfo("token_refreshed", user_id=user_id)
-    return AccessTokenResponse(access_token=access_token)
-
-
-async def logout(payload: RefreshRequest, redis: Redis) -> None:
-    try:
-        claims = decode_token(payload.refresh_token)
-    except JWTError:
-        raise UnauthorizedException(ErrorMessage.INVALID_TOKEN)
-
-    if claims.get("type") != TokenType.REFRESH:
-        raise UnauthorizedException(ErrorMessage.INVALID_TOKEN)
-
-    user_id: str = claims["sub"]
-    redis_key = f"{REDIS_PREFIX_REFRESH_TOKEN}{user_id}"
-    await redis.delete(redis_key)
-    await logger.ainfo("user_logged_out", user_id=user_id)
+    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
+        """Verify password against hash."""
+        return pwd_context.verify(plain_password, hashed_password)
