@@ -30,6 +30,7 @@ from .identity import (
     RoleDocument,
     RoleEnum,
     Team,
+    User,
     Workspace,
 )
 from .integration import (
@@ -48,6 +49,7 @@ from .integration import (
 
 __all__ = [
     # Identity
+    "User",
     "Organization",
     "Workspace",
     "Member",

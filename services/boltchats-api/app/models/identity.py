@@ -93,6 +93,27 @@ class RoleDocument(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+# ─── USER ──────────────────────────────────────────────────────────────
+
+class User(BaseModel):
+    """User account (global, not org-specific)"""
+
+    id: str | None = Field(default=None, alias="_id")
+    email: str  # Unique globally
+    password_hash: str  # Bcrypt hash
+    full_name: str
+    avatar_url: str | None = None
+    
+    is_active: bool = True
+    email_verified: bool = False
+    email_verified_at: datetime | None = None
+    
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    
+    model_config = {"populate_by_name": True}
+
+
 # ─── ORGANIZATION ─────────────────────────────────────────────────────
 
 class Organization(BaseModel):

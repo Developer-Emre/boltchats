@@ -20,6 +20,7 @@ from .identity import (
     OrganizationRepository,
     RoleRepository,
     TeamRepository,
+    UserRepository,
     WorkspaceRepository,
 )
 from .integration import (
@@ -39,6 +40,7 @@ __all__ = [
     "PaginationParams",
     "PaginatedResponse",
     # Identity
+    "UserRepository",
     "OrganizationRepository",
     "WorkspaceRepository",
     "MemberRepository",

@@ -13,11 +13,27 @@ from app.models.identity import (
     Organization,
     RoleDocument,
     Team,
+    User,
     Workspace,
 )
 from app.utils.sparkquark_constants import Collection
 
 from .base import BaseRepository
+
+
+class UserRepository(BaseRepository[User]):
+    """Repository for users"""
+
+    def __init__(self, db: AsyncIOMotorDatabase):
+        super().__init__(db, Collection.USERS.value, User)
+
+    async def find_by_email(self, email: str) -> User | None:
+        """Find user by email"""
+        return await self.find({"email": email})
+
+    async def find_by_id(self, user_id: str) -> User | None:
+        """Find user by ID"""
+        return await self.read(user_id)
 
 
 class OrganizationRepository(BaseRepository[Organization]):

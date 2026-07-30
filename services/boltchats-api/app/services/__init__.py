@@ -7,7 +7,7 @@ They use repositories for data access and publish domain events.
 Multi-tenant support is enforced at every service method.
 """
 
-from .auth_service import AuthService
+from .auth import AuthenticationService, PasswordService, TokenService
 from .base import (
     AppError,
     BaseService,
@@ -17,11 +17,14 @@ from .base import (
     UnauthorizedError,
     ValidationError,
 )
-from .conversation_service import ConversationService, CustomerService
-from .event_publisher import EventPublisher, EventSubscriber
-from .integration_service import IntegrationService
-from .notification_service import NotificationService
-from .organization_service import OrganizationService
+from .organization import (
+    InvitationService,
+    MemberService,
+    OrganizationService,
+    RoleService,
+    TeamService,
+    WorkspaceService,
+)
 
 __all__ = [
     # Base
@@ -32,13 +35,15 @@ __all__ = [
     "ValidationError",
     "UnauthorizedError",
     "ForbiddenError",
-    # Services
-    "AuthService",
+    # Auth Services
+    "AuthenticationService",
+    "TokenService",
+    "PasswordService",
+    # Organization Services
     "OrganizationService",
-    "CustomerService",
-    "ConversationService",
-    "NotificationService",
-    "EventPublisher",
-    "EventSubscriber",
-    "IntegrationService",
+    "WorkspaceService",
+    "MemberService",
+    "TeamService",
+    "RoleService",
+    "InvitationService",
 ]

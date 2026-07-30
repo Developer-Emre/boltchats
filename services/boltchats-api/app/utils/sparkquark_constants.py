@@ -9,7 +9,9 @@ class Collection(str, Enum):
     """MongoDB collection names"""
 
     # Identity Domain
+    USERS = "users"
     ORGANIZATIONS = "organizations"
+    ROLES = "roles"
     WORKSPACES = "workspaces"
     MEMBERS = "members"
     MEMBER_ROLES = "member_roles"
