@@ -20,8 +20,8 @@ class ConversationStatus(str, Enum):
     ARCHIVED = "archived"
 
 
-class ConversationSource(str, Enum):
-    """Communication channel source"""
+class ConversationChannel(str, Enum):
+    """Communication channel (provider)"""
 
     INSTAGRAM = "instagram"
     FACEBOOK = "facebook"
@@ -49,14 +49,36 @@ class MessageFrom(str, Enum):
     INTERNAL = "internal"
 
 
-# ─── CUSTOMER ─────────────────────────────────────────────────────────
+# ─── CUSTOMER & CUSTOMER IDENTITY ─────────────────────────────────────
 
-class CustomerChannel(BaseModel):
-    """Customer's identifier on a specific channel"""
+class CustomerIdentity(BaseModel):
+    """Customer's identifier on a specific channel (separate collection)"""
 
-    source: ConversationSource
-    identifier: str  # phone, email, username, ID, etc.
-    display_name: str | None = None
+    id: str | None = Field(default=None, alias="_id")
+    organization_id: str
+    customer_id: str
+
+    channel: ConversationChannel
+    external_id: str  # Platform-specific ID (Instagram ID, WhatsApp number, etc.)
+    username: str | None = None  # Display username (e.g., @instagram_handle)
+    
+    # Channel-specific metadata
+    metadata: dict = Field(default_factory=dict)  # avatar_url, phone, etc.
+
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    model_config = {"populate_by_name": True}
+
+
+class CustomerStats(BaseModel):
+    """Embedded stats for Customer (denormalized for dashboard queries)"""
+
+    conversation_count: int = 0
+    open_conversation_count: int = 0
+    closed_conversation_count: int = 0
+    total_messages: int = 0
+    last_contact_at: datetime | None = None
 
 
 class Customer(BaseModel):
@@ -71,21 +93,15 @@ class Customer(BaseModel):
     phone: str | None = None
     avatar_url: str | None = None
 
-    # Channel identifiers (Instagram handle, WhatsApp number, etc.)
-    channels: list[CustomerChannel] = Field(default_factory=list)
+    # Embedded stats (denormalized for dashboard queries)
+    stats: CustomerStats = Field(default_factory=CustomerStats)
 
     # Metadata
     tags: list[str] = Field(default_factory=list)
     metadata: dict = Field(default_factory=dict)
 
-    # Conversation stats
-    total_conversations: int = 0
-    open_conversations: int = 0
-    closed_conversations: int = 0
-
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    last_message_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
 
@@ -107,8 +123,8 @@ class Conversation(BaseModel):
     organization_id: str
     customer_id: str
 
-    # Source and identity
-    source: ConversationSource
+    # Channel and identity
+    channel: ConversationChannel
     external_id: str  # Instagram DM ID, WhatsApp message ID, etc.
     external_url: str | None = None
 
@@ -123,14 +139,15 @@ class Conversation(BaseModel):
 
     # Metadata
     subject: str | None = None
-    labels: list[str] = Field(default_factory=list)  # Label IDs
+    label_ids: list[str] = Field(default_factory=list)  # Label IDs (renamed from labels)
     priority: int = 0  # 0=normal, 1=high, 2=urgent
     tags: list[str] = Field(default_factory=list)
 
-    # Messages
+    # Denormalized counts for dashboard queries
     message_count: int = 0
     last_message_id: str | None = None
     last_message_at: datetime | None = None
+    participant_count: int = 0  # Number of team members involved
 
     # Internal collaboration
     mention_count: int = 0
@@ -148,10 +165,42 @@ class Conversation(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+# ─── CONVERSATION PARTICIPANT ─────────────────────────────────────────
+
+class ConversationParticipant(BaseModel):
+    """Team member participating in a conversation"""
+
+    id: str | None = Field(default=None, alias="_id")
+    organization_id: str
+    conversation_id: str
+    member_id: str
+
+    # Tracking
+    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_read_message_id: str | None = None
+    last_read_at: datetime | None = None
+
+    # Metadata
+    metadata: dict = Field(default_factory=dict)
+
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    model_config = {"populate_by_name": True}
+
+
 # ─── MESSAGE ───────────────────────────────────────────────────────────
 
+class Mention(BaseModel):
+    """Embedded @mention in message or internal note"""
+
+    member_id: str
+    mentioned_by: str  # Member ID who created the mention
+    mentioned_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class Attachment(BaseModel):
-    """File attachment in a message"""
+    """Embedded file attachment in a message"""
 
     url: str
     filename: str
@@ -170,7 +219,10 @@ class Message(BaseModel):
     # Content
     content: str
     message_type: MessageType = MessageType.TEXT
+    
+    # Embedded attachments and mentions (MongoDB advantage)
     attachments: list[Attachment] = Field(default_factory=list)
+    mentions: list[Mention] = Field(default_factory=list)
 
     # Who sent it
     from_type: MessageFrom  # customer or agent
@@ -180,13 +232,20 @@ class Message(BaseModel):
     # External reference
     external_id: str | None = None  # Instagram message ID, etc.
 
-    # Metadata
-    metadata: dict = Field(default_factory=dict)
+    # Threading support
+    reply_to_message_id: str | None = None  # For threaded conversations
 
-    # Status
+    # Edit history
+    edited_at: datetime | None = None
+    edited_by: str | None = None
+
+    # Soft delete
     is_deleted: bool = False
     deleted_at: datetime | None = None
     deleted_by: str | None = None
+
+    # Metadata
+    metadata: dict = Field(default_factory=dict)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -205,33 +264,12 @@ class InternalNote(BaseModel):
 
     content: str
     author_id: str  # Member ID
-    mentioned_members: list[str] = Field(default_factory=list)
+    
+    # Embedded mentions (same as Message)
+    mentions: list[Mention] = Field(default_factory=list)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-    model_config = {"populate_by_name": True}
-
-
-# ─── MENTION ───────────────────────────────────────────────────────────
-
-class Mention(BaseModel):
-    """@mention of a team member"""
-
-    id: str | None = Field(default=None, alias="_id")
-    organization_id: str
-    conversation_id: str
-    message_id: str | None = None  # If in message
-    internal_note_id: str | None = None  # If in internal note
-
-    mentioned_member_id: str
-    mentioned_by: str  # Member ID
-    context: str = ""  # Why they were mentioned
-
-    read: bool = False
-    read_at: datetime | None = None
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     model_config = {"populate_by_name": True}
 
@@ -259,15 +297,15 @@ class Label(BaseModel):
 
 # ─── DRAFT ────────────────────────────────────────────────────────────
 
-class Draft(BaseModel):
-    """Unsent message draft"""
+class ConversationDraft(BaseModel):
+    """Unsent message draft (simplified)"""
 
     id: str | None = Field(default=None, alias="_id")
     organization_id: str
     conversation_id: str
+    member_id: str
 
     content: str
-    author_id: str  # Member ID
     attachments: list[Attachment] = Field(default_factory=list)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

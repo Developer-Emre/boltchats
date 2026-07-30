@@ -12,22 +12,15 @@ from pydantic import BaseModel, Field
 
 # ─── INTEGRATION ──────────────────────────────────────────────────────
 
-class ProviderEnum(str, Enum):
-    """External providers"""
+class OAuthData(BaseModel):
+    """Embedded OAuth credentials (encrypted in storage)"""
 
-    META = "meta"  # Instagram, Facebook, WhatsApp
-    TWITTER = "twitter"
-    LINKEDIN = "linkedin"
-    TELEGRAM = "telegram"
-    EMAIL = "email"
-    LIVE_CHAT = "live_chat"
-
-
-class IntegrationStatus(str, Enum):
-    CONNECTED = "connected"
-    DISCONNECTED = "disconnected"
-    ERROR = "error"
-    EXPIRED = "expired"
+    access_token: str
+    refresh_token: str | None = None
+    token_type: str = "Bearer"
+    expires_at: datetime | None = None
+    scope: str = ""
+    raw_response: dict = Field(default_factory=dict)
 
 
 class Integration(BaseModel):
@@ -37,53 +30,34 @@ class Integration(BaseModel):
     organization_id: str
 
     provider: ProviderEnum
-    name: str  # "Support Team Instagram", etc.
+    display_name: str  # "Support Team Instagram", etc.
     
     status: IntegrationStatus = IntegrationStatus.DISCONNECTED
     
-    # OAuth
-    oauth_token_id: str | None = None  # Reference to oauth_tokens collection
+    # Provider account information
+    provider_account_id: str  # Instagram Business ID, Twitter User ID, etc.
+    provider_username: str | None = None  # @handle, email, etc.
+    provider_avatar_url: str | None = None
+    
+    # Embedded OAuth (instead of separate collection)
+    oauth: OAuthData | None = None
+    
+    # Webhook configuration
     webhook_url: str | None = None
     webhook_secret: str | None = None
 
-    # Configuration
-    settings: dict = Field(default_factory=dict)
+    # Provider-specific settings
+    metadata: dict = Field(default_factory=dict)
     # Example for Meta: { "instagram_business_account_id": "123", "page_id": "456" }
 
-    connected_by: str  # Member ID
+    # Connection tracking
+    connected_by: str | None = None  # Member ID
     connected_at: datetime | None = None
     disconnected_at: datetime | None = None
 
+    # Error handling
     error_message: str | None = None
     error_at: datetime | None = None
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-    model_config = {"populate_by_name": True}
-
-
-# ─── OAUTH TOKEN ───────────────────────────────────────────────────────
-
-class OAuthToken(BaseModel):
-    """Encrypted OAuth token for provider"""
-
-    id: str | None = Field(default=None, alias="_id")
-    organization_id: str
-    integration_id: str
-
-    provider: ProviderEnum
-    
-    # Tokens (encrypted in real scenario)
-    access_token: str
-    refresh_token: str | None = None
-    
-    token_type: str = "Bearer"
-    expires_at: datetime | None = None
-    
-    scope: str = ""  # Space-separated scopes
-    
-    raw_response: dict = Field(default_factory=dict)  # Store full OAuth response
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -265,9 +239,10 @@ class Notification(BaseModel):
     last_attempt_at: datetime | None = None
     last_error: str | None = None
     
-    # Read status (for in-app)
+    # Read & engagement tracking
     read: bool = False
     read_at: datetime | None = None
+    clicked_at: datetime | None = None
     
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     sent_at: datetime | None = None

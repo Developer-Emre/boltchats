@@ -117,15 +117,34 @@ class Organization(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+# ─── WORKSPACE ────────────────────────────────────────────────────────
+
+class Workspace(BaseModel):
+    """Workspace within organization (e.g., Support, Marketing, HR)"""
+
+    id: str | None = Field(default=None, alias="_id")
+    organization_id: str
+    name: str
+    description: str = ""
+    
+    # Workspace-specific settings
+    settings: dict = Field(default_factory=dict)
+    
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    deleted_at: datetime | None = None
+
+    model_config = {"populate_by_name": True}
+
+
 # ─── MEMBER ───────────────────────────────────────────────────────────
 
-class MemberRole(BaseModel):
-    """Member's role in organization"""
-
-    role_id: str
-    role_name: RoleEnum
-    assigned_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    assigned_by: str  # Who assigned this role
+class MemberStatus(str, Enum):
+    """Member status in organization"""
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    INVITED = "invited"
+    SUSPENDED = "suspended"
 
 
 class Member(BaseModel):
@@ -135,17 +154,36 @@ class Member(BaseModel):
     organization_id: str
     user_id: str  # Reference to User collection
 
-    roles: list[MemberRole] = Field(default_factory=list)  # Can have multiple roles
-    teams: list[str] = Field(default_factory=list)  # Team IDs
-
-    is_active: bool = True
-    is_invited: bool = False
-    invite_token: str | None = None
-    invite_expires_at: datetime | None = None
+    status: MemberStatus = MemberStatus.ACTIVE
+    team_ids: list[str] = Field(default_factory=list)  # Team IDs
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_seen_at: datetime | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+# ─── MEMBER ROLE ───────────────────────────────────────────────────────
+
+class MemberRole(BaseModel):
+    """Member's role assignment (separate for audit, expiry, delegation)"""
+
+    id: str | None = Field(default=None, alias="_id")
+    organization_id: str
+    member_id: str
+    role_id: str
+    
+    # Audit trail
+    assigned_by: str  # Who assigned this role
+    assigned_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    
+    # Future support: temporary roles, delegation
+    expires_at: datetime | None = None
+    delegated_to: str | None = None  # For delegation scenarios
+    
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     model_config = {"populate_by_name": True}
 

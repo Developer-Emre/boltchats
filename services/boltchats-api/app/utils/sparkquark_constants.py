@@ -10,23 +10,23 @@ class Collection(str, Enum):
 
     # Identity Domain
     ORGANIZATIONS = "organizations"
+    WORKSPACES = "workspaces"
     MEMBERS = "members"
-    ROLES = "roles"
+    MEMBER_ROLES = "member_roles"
     TEAMS = "teams"
     INVITATIONS = "invitations"
 
     # Conversation Domain
     CUSTOMERS = "customers"
+    CUSTOMER_IDENTITIES = "customer_identities"
     CONVERSATIONS = "conversations"
+    CONVERSATION_PARTICIPANTS = "conversation_participants"
     MESSAGES = "messages"
-    INTERNAL_NOTES = "internal_notes"
-    MENTIONS = "mentions"
     LABELS = "labels"
-    DRAFTS = "drafts"
+    CONVERSATION_DRAFTS = "conversation_drafts"
 
     # Integration Domain
     INTEGRATIONS = "integrations"
-    OAUTH_TOKENS = "oauth_tokens"
 
     # Events & Audit
     EVENTS = "events"
@@ -34,7 +34,6 @@ class Collection(str, Enum):
 
     # Notifications
     NOTIFICATIONS = "notifications"
-    NOTIFICATION_QUEUE = "notification_queue"
 
 
 class ErrorMessage(str, Enum):
