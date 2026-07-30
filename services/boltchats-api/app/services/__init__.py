@@ -11,9 +11,9 @@ Organized into domains:
 - organization/ - Org structure (orgs, workspaces, members, teams, roles, invites)
 - conversation/ - Customer communication (customers, conversations, messages, drafts, labels)
 - security/ - Access control (permissions, RBAC)
-- integration/ - Provider connections (coming in Phase 5)
-- notification/ - Multi-channel notifications (coming in Phase 5)
-- events/ - Event bus & workflow orchestration (coming in Phase 6)
+- integration/ - Provider connections (Phase 5 ✅)
+- notification/ - Multi-channel notifications (Phase 5 ✅)
+- events/ - Event bus & workflow orchestration (Phase 6)
 """
 
 from .auth import AuthenticationService, PasswordService, TokenService
@@ -32,6 +32,14 @@ from .conversation import (
     DraftService,
     LabelService,
     MessageService,
+)
+from .integration import (
+    IntegrationService,
+    ProviderFactory,
+)
+from .notification import (
+    NotificationProviderFactory,
+    NotificationService,
 )
 from .organization import (
     InvitationService,
@@ -72,4 +80,10 @@ __all__ = [
     # Security Services
     "PermissionService",
     "Permission",
+    # Integration Services
+    "IntegrationService",
+    "ProviderFactory",
+    # Notification Services
+    "NotificationService",
+    "NotificationProviderFactory",
 ]
