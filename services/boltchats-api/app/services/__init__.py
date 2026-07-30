@@ -10,10 +10,10 @@ Organized into domains:
 - auth/ - User authentication (authentication, tokens, passwords)
 - organization/ - Org structure (orgs, workspaces, members, teams, roles, invites)
 - conversation/ - Customer communication (customers, conversations, messages, drafts, labels)
+- security/ - Access control (permissions, RBAC)
 - integration/ - Provider connections (coming in Phase 5)
 - notification/ - Multi-channel notifications (coming in Phase 5)
 - events/ - Event bus & workflow orchestration (coming in Phase 6)
-- security/ - Permission checking (coming in Phase 4)
 """
 
 from .auth import AuthenticationService, PasswordService, TokenService
@@ -41,6 +41,7 @@ from .organization import (
     TeamService,
     WorkspaceService,
 )
+from .security import Permission, PermissionService
 
 __all__ = [
     # Base
@@ -68,4 +69,7 @@ __all__ = [
     "MessageService",
     "DraftService",
     "LabelService",
+    # Security Services
+    "PermissionService",
+    "Permission",
 ]

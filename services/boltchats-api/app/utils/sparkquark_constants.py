@@ -179,6 +179,7 @@ class RedisKey(str, Enum):
     CACHE_MEMBER = "cache:member:{member_id}"
     CACHE_ORG = "cache:org:{org_id}"
     CACHE_CONVERSATION = "cache:conversation:{conversation_id}"
+    PERMISSIONS = "permissions:{member_id}"
 
     # Message queue
     QUEUE_NOTIFICATIONS = "queue:notifications"
