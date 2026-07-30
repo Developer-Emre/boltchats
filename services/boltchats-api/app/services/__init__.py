@@ -13,7 +13,7 @@ Organized into domains:
 - security/ - Access control (permissions, RBAC)
 - integration/ - Provider connections (Phase 5 ✅)
 - notification/ - Multi-channel notifications (Phase 5 ✅)
-- events/ - Event bus & workflow orchestration (Phase 6)
+- events/ - Event bus & workflow orchestration (Phase 6 ✅)
 """
 
 from .auth import AuthenticationService, PasswordService, TokenService
@@ -33,6 +33,7 @@ from .conversation import (
     LabelService,
     MessageService,
 )
+from .events import EventBus, EventConsumer, WorkflowService
 from .integration import (
     IntegrationService,
     ProviderFactory,
@@ -86,4 +87,8 @@ __all__ = [
     # Notification Services
     "NotificationService",
     "NotificationProviderFactory",
+    # Event & Workflow Services
+    "EventBus",
+    "EventConsumer",
+    "WorkflowService",
 ]
