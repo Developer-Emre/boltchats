@@ -1,335 +1,814 @@
-# boltschats — Final Project Structure
+# SparkQuark Architecture Guide
 
-```
-boltschats/
-│
-├── .github/
-│   ├── workflows/
-│   │   ├── ci.yml                        # Test + lint + build (her PR)
-│   │   ├── cd-api.yml                    # API deploy (main → staging, tag → prod)
-│   │   ├── cd-ws.yml                     # WS deploy (main → staging, tag → prod)
-│   │   ├── cd-storage.yml                # Storage deploy
-│   │   ├── security-scan.yml             # Trivy + Snyk (scheduled + PR)
-│   │   ├── load-test.yml                 # Scheduled k6 (her gece)
-│   │   └── dependabot.yml                # Otomatik dep güncelleme
-│   ├── CODEOWNERS                        # Kim neyi review eder
-│   └── pull_request_template.md          # PR açıkken kontrol listesi
-│
-├── services/
-│   │
-│   ├── boltschats-api/
-│   │   ├── app/
-│   │   │   ├── __init__.py
-│   │   │   ├── main.py
-│   │   │   ├── core/
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── config.py             # Pydantic Settings
-│   │   │   │   ├── security.py           # JWT encode/decode + password hash
-│   │   │   │   ├── database.py           # MongoDB bağlantısı
-│   │   │   │   └── redis.py              # Redis bağlantısı
-│   │   │   ├── models/
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── user.py
-│   │   │   │   ├── room.py
-│   │   │   │   ├── message.py
-│   │   │   │   └── feedback.py
-│   │   │   ├── schemas/
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── auth_schema.py
-│   │   │   │   ├── user_schema.py
-│   │   │   │   ├── room_schema.py
-│   │   │   │   ├── message_schema.py
-│   │   │   │   └── feedback_schema.py
-│   │   │   ├── routers/
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── auth.py               # /login /register /refresh
-│   │   │   │   ├── users.py
-│   │   │   │   ├── rooms.py
-│   │   │   │   ├── messages.py           # /messages/history
-│   │   │   │   └── feedback.py
-│   │   │   ├── services/
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── auth_service.py
-│   │   │   │   ├── user_service.py
-│   │   │   │   ├── room_service.py
-│   │   │   │   └── message_service.py
-│   │   │   ├── middlewares/
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── auth_middleware.py
-│   │   │   │   ├── rate_limit.py
-│   │   │   │   ├── logging.py
-│   │   │   │   └── cors.py
-│   │   │   ├── utils/
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── validators.py
-│   │   │   │   ├── helpers.py
-│   │   │   │   └── constants.py
-│   │   │   └── exceptions/
-│   │   │       ├── __init__.py
-│   │   │       ├── http_exceptions.py
-│   │   │       └── handlers.py
-│   │   ├── tests/
-│   │   │   ├── unit/
-│   │   │   │   ├── test_auth.py
-│   │   │   │   ├── test_users.py
-│   │   │   │   └── test_rooms.py
-│   │   │   ├── integration/
-│   │   │   │   ├── test_api_auth.py
-│   │   │   │   └── test_api_rooms.py
-│   │   │   └── conftest.py
-│   │   ├── scripts/                      # Sadece API'ye ait script'ler
-│   │   │   ├── create_admin.py
-│   │   │   ├── seed_data.py
-│   │   │   └── migrate.py
-│   │   ├── Dockerfile
-│   │   ├── requirements.txt
-│   │   ├── requirements-dev.txt
-│   │   ├── .env.example
-│   │   ├── .dockerignore
-│   │   └── Makefile
-│   │
-│   ├── boltschats-ws/
-│   │   ├── app/
-│   │   │   ├── __init__.py
-│   │   │   ├── main.py
-│   │   │   ├── core/
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── config.py
-│   │   │   │   ├── security.py           # JWT verify — kendi kopyası
-│   │   │   │   └── redis.py
-│   │   │   ├── managers/
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── connection_manager.py
-│   │   │   │   ├── room_manager.py
-│   │   │   │   └── broadcast_manager.py
-│   │   │   ├── handlers/
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── message_handler.py
-│   │   │   │   ├── room_handler.py
-│   │   │   │   └── ping_handler.py
-│   │   │   ├── models/
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── ws_message.py
-│   │   │   │   └── ws_event.py
-│   │   │   ├── middlewares/
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── auth_websocket.py
-│   │   │   │   └── rate_limit_ws.py
-│   │   │   ├── utils/
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── message_queue.py
-│   │   │   │   └── metrics.py            # Prometheus: aktif conn, msg/s
-│   │   │   └── constants/
-│   │   │       ├── __init__.py
-│   │   │       └── ws_codes.py
-│   │   ├── tests/
-│   │   │   ├── unit/                     # API ile tutarlı: unit/integration ayrımı
-│   │   │   │   ├── test_connection_manager.py
-│   │   │   │   ├── test_room_manager.py
-│   │   │   │   └── test_broadcast_manager.py
-│   │   │   ├── integration/
-│   │   │   │   ├── test_ws_connection.py
-│   │   │   │   ├── test_ws_broadcast.py
-│   │   │   │   └── test_ws_auth.py
-│   │   │   └── conftest.py
-│   │   ├── Dockerfile
-│   │   ├── requirements.txt
-│   │   ├── requirements-dev.txt
-│   │   ├── .env.example
-│   │   ├── .dockerignore
-│   │   └── Makefile
-│   │
-│   └── boltschats-storage/               # API ve WS ile eşit iskelet
-│       ├── app/
-│       │   ├── __init__.py
-│       │   ├── main.py
-│       │   ├── core/
-│       │   │   ├── __init__.py
-│       │   │   ├── config.py
-│       │   │   └── database.py
-│       │   ├── consumer.py               # Redis queue consumer
-│       │   ├── storage.py                # MongoDB write logic
-│       │   └── utils/
-│       │       ├── __init__.py
-│       │       └── metrics.py
-│       ├── tests/
-│       │   ├── unit/
-│       │   │   └── test_storage.py
-│       │   ├── integration/
-│       │   │   └── test_consumer.py
-│       │   └── conftest.py
-│       ├── Dockerfile
-│       ├── requirements.txt
-│       ├── requirements-dev.txt
-│       ├── .env.example
-│       ├── .dockerignore
-│       └── Makefile
-│
-├── infrastructure/
-│   │
-│   ├── kubernetes/
-│   │   ├── base/
-│   │   │   ├── namespace.yaml
-│   │   │   └── configmap.yaml
-│   │   │   # NOT: secrets.yaml burada YOK — secrets/ klasöründe şifreli
-│   │   ├── components/                   # Sadece uygulama servisleri
-│   │   │   ├── api-deployment.yaml
-│   │   │   ├── api-service.yaml
-│   │   │   ├── ws-deployment.yaml
-│   │   │   ├── ws-service.yaml
-│   │   │   ├── storage-deployment.yaml
-│   │   │   ├── storage-service.yaml
-│   │   │   ├── network-policy.yaml
-│   │   │   └── service-monitor.yaml
-│   │   ├── databases/                    # DB manifestleri ayrı — farklı lifecycle
-│   │   │   ├── mongodb-statefulset.yaml
-│   │   │   ├── mongodb-service.yaml
-│   │   │   ├── redis-deployment.yaml
-│   │   │   └── redis-service.yaml
-│   │   ├── overlays/
-│   │   │   ├── dev/
-│   │   │   │   ├── kustomization.yaml
-│   │   │   │   └── patch.yaml
-│   │   │   ├── staging/
-│   │   │   │   ├── kustomization.yaml
-│   │   │   │   ├── hpa.yaml
-│   │   │   │   └── pdb.yaml
-│   │   │   └── prod/
-│   │   │       ├── kustomization.yaml
-│   │   │       ├── hpa.yaml
-│   │   │       ├── pdb.yaml
-│   │   │       └── ingress.yaml
-│   │   └── secrets/
-│   │       ├── sealed-secret.yaml        # kubeseal ile şifrelenmiş
-│   │       └── external-secret.yaml      # Vault/AWS SSM entegrasyonu
-│   │
-│   ├── terraform/
-│   │   ├── modules/
-│   │   │   ├── eks/
-│   │   │   │   ├── main.tf
-│   │   │   │   ├── variables.tf
-│   │   │   │   └── outputs.tf
-│   │   │   ├── vpc/
-│   │   │   │   ├── main.tf
-│   │   │   │   └── variables.tf
-│   │   │   └── mongodb-atlas/
-│   │   │       ├── main.tf
-│   │   │       └── variables.tf
-│   │   ├── environments/
-│   │   │   ├── dev/
-│   │   │   │   ├── main.tf
-│   │   │   │   ├── provider.tf           # Her env kendi provider'ı taşır
-│   │   │   │   ├── variables.tf
-│   │   │   │   ├── terraform.tfvars
-│   │   │   │   └── backend.tf            # Remote state: S3 + DynamoDB lock
-│   │   │   ├── staging/
-│   │   │   │   ├── main.tf
-│   │   │   │   ├── provider.tf
-│   │   │   │   ├── variables.tf
-│   │   │   │   ├── terraform.tfvars
-│   │   │   │   └── backend.tf
-│   │   │   └── prod/
-│   │   │       ├── main.tf
-│   │   │       ├── provider.tf
-│   │   │       ├── variables.tf
-│   │   │       ├── terraform.tfvars
-│   │   │       └── backend.tf
-│   │   └── global/
-│   │       └── iam.tf                    # Sadece IAM — provider buradan kalktı
-│   │
-│   ├── monitoring/                       # Helm values + dashboard JSON'ları
-│   │   ├── prometheus-values.yaml
-│   │   ├── grafana-values.yaml
-│   │   ├── loki-values.yaml
-│   │   ├── tempo-values.yaml
-│   │   └── dashboards/
-│   │       ├── boltschats-overview.json
-│   │       ├── ws-connections.json       # Aktif WS + room metrikleri
-│   │       └── api-latency.json
-│   │
-│   ├── configs/                          # Tüm config dosyaları burada — root'ta değil
-│   │   ├── nginx.conf
-│   │   ├── prometheus.yml
-│   │   ├── loki-config.yaml
-│   │   ├── alertmanager.yaml
-│   │   └── opentelemetry-collector.yaml
-│   │
-│   ├── logging/
-│   │   ├── fluentbit-values.yaml
-│   │   └── vector-config.yaml
-│   │
-│   └── service-mesh/
-│       ├── istio-values.yaml
-│       └── virtual-service.yaml
-│
-├── load-test/                            # k6 scriptleri — scripts/'taki .sh buraya işaret eder
-│   ├── smoke.js                          # Hızlı sağlık kontrolü
-│   ├── stress.js                         # Kademeli yük artışı
-│   ├── spike.js                          # Ani trafik patlaması
-│   ├── ws-load.js                        # WebSocket bağlantı testi
-│   └── config/
-│       ├── thresholds.js                 # SLO eşikleri
-│       └── scenarios.js                  # Senaryo tanımları
-│
-├── scripts/                              # Sadece infra/ops script'leri
-│   ├── deploy.sh                         # K8s deploy wrapper
-│   ├── backup-mongodb.sh
-│   ├── load-test.sh                      # k6 çağrır → load-test/*.js
-│   ├── cert-renew.sh
-│   └── seed-test-data.sh
-│
-├── docs/                                 # TEK docs/ — iki ayrı dizin birleştirildi
-│   ├── api/
-│   │   ├── openapi.yaml
-│   │   └── postman-collection.json
-│   ├── websocket/
-│   │   └── protocol.md
-│   ├── architecture/
-│   │   ├── c4-model.md
-│   │   └── decision-records/
-│   │       ├── ADR-001-ws-redis-pubsub.md
-│   │       ├── ADR-002-kustomize-over-helm.md
-│   │       └── ADR-003-no-shared-library.md
-│   └── operations/
-│       ├── runbook.md
-│       └── on-call-guide.md
-│
-├── docker-compose.yml                    # Local dev: api + ws + storage + mongo + redis
-├── docker-compose.test.yml               # CI: test ortamı
-├── docker-compose.monitoring.yml         # Local: prometheus + grafana + loki
-├── .gitignore
-├── .pre-commit-config.yaml
-├── Makefile                              # make up / test / deploy-staging / lint
-├── README.md
-└── LICENSE
-```
+Version: 1.0
+Status: MVP
+Architecture: Modular Monolith (AI Ready)
+Target: B2B SaaS
+Language: Python (FastAPI) + Next.js
+Database: MongoDB
+Realtime: WebSocket
+Cache: Redis
 
 ---
 
-## Yapısal kurallar (değişmez)
+# 1. Product Vision
 
-### Servis bağımsızlığı
-Her servis kendi `core/security.py` ile JWT doğrular. `shared/` klasörü yoktur.
-Servisler arası contract: OpenAPI spec (`docs/api/openapi.yaml`) üzerinden.
+SparkQuark is an Omnichannel Customer Communication Platform designed for modern businesses.
 
-### Script sorumluluğu
-| Nerede | Ne tür script |
-|--------|---------------|
-| `services/*/scripts/` | O servise ait: migrate, seed, admin oluştur |
-| `scripts/` (root) | İnfra/ops: deploy, backup, load-test çağrısı |
+Companies should be able to manage every customer conversation from one place.
 
-### Test tutarlılığı
-Her 3 servis aynı test yapısını kullanır: `tests/unit/` + `tests/integration/` + `conftest.py`
+Instead of switching between:
 
-### Terraform provider kuralı
-`provider.tf` her `environments/*/` altında ayrı durur.
-`global/` sadece cross-env IAM resource'larını taşır.
+- Instagram
+- Facebook
+- WhatsApp
+- Live Chat
+- Email
+- X (Twitter)
 
-### Kubernetes ayrımı
-`components/` → uygulama servisleri (deployment + service)
-`databases/` → MongoDB, Redis (farklı lifecycle, farklı owner)
-`secrets/` → sadece şifreli Sealed Secret veya External Secret referansı
+everything should appear inside one collaborative inbox.
 
-### Docs tekliği
-Tek `docs/` dizini, root'ta. Mimari kararlar ADR formatında `docs/architecture/decision-records/` altında.
-```
+SparkQuark is NOT a messaging application.
+
+SparkQuark is a Customer Communication Operating System.
+
+Realtime messaging is only one part of the product.
+
+---
+
+# 2. Goals
+
+SparkQuark should solve these problems.
+
+• Multiple communication channels
+
+• Slow customer support
+
+• No internal collaboration
+
+• Scattered conversations
+
+• No centralized customer profile
+
+• No realtime collaboration
+
+• Difficult social media management
+
+---
+
+# 3. Core Principles
+
+## Multi Tenant
+
+Everything belongs to an Organization.
+
+Organizations are completely isolated.
+
+Each organization owns:
+
+- Users
+- Teams
+- Roles
+- Customers
+- Integrations
+- OAuth Tokens
+- Conversations
+- Analytics
+
+No organization can access another organization's data.
+
+---
+
+## Domain Driven Design
+
+Every feature belongs to a domain.
+
+Domains communicate through events.
+
+Domains never depend on each other directly.
+
+---
+
+## API First
+
+Business logic lives inside APIs.
+
+Realtime only delivers events.
+
+Never implement business rules inside websocket handlers.
+
+---
+
+## Event Driven
+
+Every important action should create a domain event.
+
+Examples
+
+ConversationCreated
+
+ConversationAssigned
+
+MessageReceived
+
+MessageSent
+
+IntegrationConnected
+
+CustomerCreated
+
+MentionCreated
+
+Later these events will be used by:
+
+Automation
+
+Analytics
+
+Notifications
+
+AI
+
+---
+
+## AI Ready
+
+AI is NOT part of MVP.
+
+Architecture should allow future AI modules without changing existing code.
+
+Future AI
+
+Conversation Summary
+
+Suggested Replies
+
+Sentiment Analysis
+
+Knowledge Search
+
+Auto Categorization
+
+---
+
+# 4. Product Modules
+
+SparkQuark consists of six business domains.
+
+Identity
+
+Conversation
+
+Integration
+
+Realtime
+
+Notification
+
+Analytics
+
+Every module has a single responsibility.
+
+---
+
+# 5. Identity Domain
+
+Responsible for
+
+Authentication
+
+Organizations
+
+Members
+
+Invitations
+
+Teams
+
+Roles
+
+Permissions
+
+JWT
+
+RBAC
+
+OAuth Login (future)
+
+Never store customer data here.
+
+---
+
+Entities
+
+Organization
+
+Workspace
+
+Member
+
+Role
+
+Permission
+
+Team
+
+Invitation
+
+---
+
+# 6. Conversation Domain
+
+This is the heart of SparkQuark.
+
+Everything customer related belongs here.
+
+Entities
+
+Conversation
+
+Message
+
+Attachment
+
+Mention
+
+Internal Note
+
+Assignment
+
+Label
+
+Draft
+
+There are NO chat rooms.
+
+Everything is conversation based.
+
+---
+
+Conversation lifecycle
+
+Open
+
+Pending
+
+Resolved
+
+Closed
+
+Archived
+
+---
+
+Conversation source
+
+Instagram
+
+Facebook
+
+WhatsApp
+
+Live Chat
+
+Email
+
+Twitter
+
+LinkedIn
+
+Telegram
+
+---
+
+# 7. Customer Domain
+
+A customer should have one unified profile.
+
+Example
+
+Customer
+
+Name
+
+Email
+
+Phone
+
+Instagram
+
+Facebook
+
+WhatsApp
+
+Every communication channel belongs to one customer.
+
+Future CRM features will extend this model.
+
+---
+
+# 8. Integration Domain
+
+Responsible for external providers.
+
+Each provider must be isolated.
+
+Example
+
+Meta
+
+Instagram
+
+Facebook
+
+Messenger
+
+WhatsApp
+
+Each provider must implement the same interface.
+
+Required capabilities
+
+Connect
+
+Disconnect
+
+OAuth
+
+Webhook
+
+Receive Message
+
+Send Message
+
+Download Attachment
+
+Every provider translates external payloads into internal domain models.
+
+Conversation Domain should never know Meta payload formats.
+
+---
+
+Adapters
+
+MetaAdapter
+
+TwitterAdapter
+
+LinkedInAdapter
+
+EmailAdapter
+
+WebChatAdapter
+
+TelegramAdapter
+
+---
+
+# 9. Realtime Domain
+
+Responsible only for websocket communication.
+
+Features
+
+Connection
+
+Presence
+
+Typing Indicator
+
+Read Receipts
+
+Online Status
+
+Realtime Notifications
+
+Broadcast
+
+No database logic.
+
+No business logic.
+
+No validation.
+
+Everything comes from Conversation Domain.
+
+---
+
+# 10. Notification Domain
+
+Responsible for delivering notifications.
+
+Delivery Channels
+
+Email
+
+Push
+
+WebSocket
+
+Webhook
+
+SMS (future)
+
+Notifications should be asynchronous.
+
+---
+
+# 11. Analytics Domain
+
+Responsible for reporting.
+
+Metrics
+
+Response Time
+
+First Response
+
+Average Resolution Time
+
+Open Conversations
+
+Closed Conversations
+
+Agent Performance
+
+Customer Satisfaction (future)
+
+Analytics should never affect production performance.
+
+---
+
+# 12. Workspace Structure
+
+Organization
+
+↓
+
+Workspace
+
+↓
+
+Team
+
+↓
+
+Member
+
+Example
+
+Acme
+
+Support
+
+Support Team
+
+John
+
+---
+
+# 13. Conversation Flow
+
+Customer sends Instagram message
+
+↓
+
+Meta Webhook
+
+↓
+
+Integration Module
+
+↓
+
+Normalize Payload
+
+↓
+
+Conversation Domain
+
+↓
+
+Save Message
+
+↓
+
+Publish Event
+
+↓
+
+Realtime
+
+↓
+
+Dashboard
+
+---
+
+# 14. Internal Collaboration
+
+Every conversation supports
+
+Mentions
+
+Assignments
+
+Labels
+
+Internal Notes
+
+Drafts
+
+Internal Notes are never visible to customers.
+
+---
+
+# 15. RBAC
+
+Roles
+
+Owner
+
+Admin
+
+Manager
+
+Agent
+
+Viewer
+
+Every API endpoint must validate permissions.
+
+Never trust frontend permissions.
+
+---
+
+# 16. Database Collections
+
+organizations
+
+members
+
+roles
+
+permissions
+
+teams
+
+customers
+
+conversations
+
+messages
+
+attachments
+
+internal_notes
+
+mentions
+
+labels
+
+assignments
+
+integrations
+
+oauth_tokens
+
+notifications
+
+events
+
+audit_logs
+
+---
+
+# 17. Folder Structure
+
+sparkquark/
+
+apps/
+
+dashboard/
+
+widget/
+
+admin/
+
+services/
+
+api/
+
+realtime/
+
+packages/
+
+auth/
+
+events/
+
+logger/
+
+config/
+
+types/
+
+utils/
+
+infrastructure/
+
+kubernetes/
+
+terraform/
+
+monitoring/
+
+docs/
+
+scripts/
+
+---
+
+# 18. Coding Standards
+
+Use Clean Architecture.
+
+Business logic belongs to Services.
+
+Controllers must be thin.
+
+Repositories only access database.
+
+Never call MongoDB directly from Controllers.
+
+Never call websocket from Controllers.
+
+Everything should pass through Services.
+
+---
+
+# 19. Design Patterns
+
+Repository Pattern
+
+Service Layer
+
+Adapter Pattern
+
+Dependency Injection
+
+Factory Pattern (Integrations)
+
+Strategy Pattern (Providers)
+
+Observer Pattern (Events)
+
+---
+
+# 20. Security
+
+JWT Authentication
+
+Refresh Tokens
+
+Rate Limiting
+
+Audit Logs
+
+Role Based Authorization
+
+Webhook Signature Validation
+
+Encrypted OAuth Tokens
+
+HTTPS Only
+
+CORS
+
+Secure Cookies (future)
+
+---
+
+# 21. MVP Features
+
+Authentication
+
+Organization Management
+
+Workspace
+
+Members
+
+RBAC
+
+Meta Integration
+
+Instagram Messaging
+
+Facebook Messaging
+
+WhatsApp Business
+
+Live Chat Widget
+
+Conversation Inbox
+
+Realtime Messaging
+
+Mentions
+
+Assignments
+
+Internal Notes
+
+Labels
+
+Attachments
+
+Notifications
+
+Analytics
+
+Audit Logs
+
+---
+
+# 22. Future Roadmap
+
+Twitter
+
+LinkedIn
+
+Telegram
+
+Email
+
+CRM
+
+Automation Engine
+
+AI Module
+
+Marketplace
+
+Public API
+
+Mobile Apps
+
+Voice
+
+Video
+
+Knowledge Base
+
+Chatbots
+
+---
+
+# 23. Non Goals
+
+SparkQuark is NOT
+
+A Discord clone
+
+A Slack clone
+
+A CRM
+
+A Ticket System
+
+SparkQuark is a Customer Communication Platform that can integrate with CRMs and Ticket Systems.
+
+---
+
+# 24. Engineering Rules
+
+One responsibility per module.
+
+Never couple business logic with integrations.
+
+Never expose provider-specific payloads.
+
+Always normalize data.
+
+Every integration is replaceable.
+
+Every module should be independently testable.
+
+Every feature must support multi tenancy.
+
+Every important action creates an event.
+
+Business logic never lives inside websocket handlers.
+
+Controllers stay thin.
+
+Services contain business logic.
+
+Repositories only communicate with MongoDB.
+
+All external APIs must be wrapped by adapters.
+
+Never leak provider implementation details into the domain model.
+
+Architecture must always remain AI-ready even if AI is disabled.
