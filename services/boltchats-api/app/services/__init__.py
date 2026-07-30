@@ -5,6 +5,15 @@ Service classes handle all business logic, validation, and orchestration.
 They use repositories for data access and publish domain events.
 
 Multi-tenant support is enforced at every service method.
+
+Organized into domains:
+- auth/ - User authentication (authentication, tokens, passwords)
+- organization/ - Org structure (orgs, workspaces, members, teams, roles, invites)
+- conversation/ - Customer communication (customers, conversations, messages, drafts, labels)
+- integration/ - Provider connections (coming in Phase 5)
+- notification/ - Multi-channel notifications (coming in Phase 5)
+- events/ - Event bus & workflow orchestration (coming in Phase 6)
+- security/ - Permission checking (coming in Phase 4)
 """
 
 from .auth import AuthenticationService, PasswordService, TokenService
@@ -16,6 +25,13 @@ from .base import (
     NotFoundError,
     UnauthorizedError,
     ValidationError,
+)
+from .conversation import (
+    ConversationService,
+    CustomerService,
+    DraftService,
+    LabelService,
+    MessageService,
 )
 from .organization import (
     InvitationService,
@@ -46,4 +62,10 @@ __all__ = [
     "TeamService",
     "RoleService",
     "InvitationService",
+    # Conversation Services
+    "CustomerService",
+    "ConversationService",
+    "MessageService",
+    "DraftService",
+    "LabelService",
 ]
