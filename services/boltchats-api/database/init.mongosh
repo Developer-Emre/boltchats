@@ -1,0 +1,78 @@
+// MongoDB Mongosh Script - Create Collections and Indexes
+// Usage: mongosh < init.mongosh
+
+// Switch to database
+use boltchats
+
+// Create collections if they don't exist
+db.createCollection("users").catch(e => null)
+db.createCollection("organizations").catch(e => null)
+db.createCollection("workspaces").catch(e => null)
+db.createCollection("members").catch(e => null)
+db.createCollection("roles").catch(e => null)
+db.createCollection("teams").catch(e => null)
+db.createCollection("invitations").catch(e => null)
+db.createCollection("customers").catch(e => null)
+db.createCollection("customer_identities").catch(e => null)
+db.createCollection("conversations").catch(e => null)
+db.createCollection("conversation_participants").catch(e => null)
+db.createCollection("messages").catch(e => null)
+db.createCollection("labels").catch(e => null)
+db.createCollection("drafts").catch(e => null)
+db.createCollection("integrations").catch(e => null)
+db.createCollection("events").catch(e => null)
+db.createCollection("audit_logs").catch(e => null)
+db.createCollection("notifications").catch(e => null)
+
+// Create indexes for Users
+db.users.createIndex({ email: 1 }, { unique: true })
+
+// Create indexes for Organizations
+db.organizations.createIndex({ slug: 1 }, { unique: true })
+
+// Create indexes for Members
+db.members.createIndex({ organization_id: 1, workspace_id: 1 })
+db.members.createIndex({ organization_id: 1, user_id: 1 }, { unique: true })
+db.members.createIndex({ email: 1 })
+
+// Create indexes for Customers
+db.customers.createIndex({ organization_id: 1, email: 1 })
+
+// Create indexes for Customer Identities
+db.customer_identities.createIndex({ customer_id: 1, provider: 1 }, { unique: true })
+db.customer_identities.createIndex({ provider: 1, external_id: 1 })
+
+// Create indexes for Conversations
+db.conversations.createIndex({ organization_id: 1, customer_id: 1, channel: 1 })
+db.conversations.createIndex({ organization_id: 1, status: 1 })
+db.conversations.createIndex({ organization_id: 1, assigned_to: 1 })
+db.conversations.createIndex({ created_at: 1 })
+
+// Create indexes for Messages
+db.messages.createIndex({ conversation_id: 1, created_at: -1 })
+db.messages.createIndex({ sender_id: 1 })
+db.messages.createIndex({ created_at: -1 })
+
+// Create indexes for Labels
+db.labels.createIndex({ organization_id: 1, name: 1 }, { unique: true })
+
+// Create indexes for Drafts
+db.drafts.createIndex({ conversation_id: 1, member_id: 1 }, { unique: true })
+
+// Create indexes for Integrations
+db.integrations.createIndex({ organization_id: 1, provider: 1 })
+
+// Create indexes for Events (Event Sourcing)
+db.events.createIndex({ organization_id: 1, created_at: -1 })
+db.events.createIndex({ aggregate_id: 1, aggregate_type: 1 })
+db.events.createIndex({ status: 1 })
+
+// Create indexes for Audit Logs
+db.audit_logs.createIndex({ organization_id: 1, created_at: -1 })
+db.audit_logs.createIndex({ resource_id: 1 })
+
+// Create indexes for Notifications
+db.notifications.createIndex({ organization_id: 1, recipient_id: 1, created_at: -1 })
+db.notifications.createIndex({ status: 1 })
+
+print("✅ All collections and indexes created successfully!")

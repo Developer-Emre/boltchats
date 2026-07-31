@@ -129,13 +129,30 @@ lint: ## Run linters on all services
 # Database
 # ─────────────────────────────────────────────
 
+db-migrate: ## Run database migrations (create collections + indexes)
+	@echo "$(BLUE)🗄️  Running database migrations...$(NC)"
+	cd services/boltchats-api && python -m app.cli.db migrate
+	@echo "$(GREEN)✅ Migrations complete$(NC)"
+
+db-seed: ## Seed database with initial roles (requires ORG_ID=<id>)
+	@if [ -z "$(ORG_ID)" ]; then echo "$(RED)❌ Usage: make db-seed ORG_ID=<organization_id>$(NC)"; exit 1; fi
+	@echo "$(BLUE)🌱 Seeding database...$(NC)"
+	cd services/boltchats-api && python -m app.cli.db seed "$(ORG_ID)"
+	@echo "$(GREEN)✅ Seeding complete$(NC)"
+
+db-reset: ## Reset database seeded data (requires ORG_ID=<id>)
+	@if [ -z "$(ORG_ID)" ]; then echo "$(RED)❌ Usage: make db-reset ORG_ID=<organization_id>$(NC)"; exit 1; fi
+	@echo "$(YELLOW)🔄 Resetting database...$(NC)"
+	cd services/boltchats-api && python -m app.cli.db reset "$(ORG_ID)"
+	@echo "$(GREEN)✅ Reset complete$(NC)"
+
+db-rollback: ## Rollback all migrations (DESTRUCTIVE ⚠️)
+	@echo "$(RED)⚠️  This will delete all collections. Are you sure? [y/N]$(NC)" && read ans && [ $${ans:-N} = y ]
+	cd services/boltchats-api && python -m app.cli.db rollback
+	@echo "$(GREEN)✅ Rollback complete$(NC)"
+
 db-shell: ## Open MongoDB shell
 	docker-compose exec mongodb mongosh -u root -p rootpassword --authenticationDatabase admin boltchats
-
-db-seed: ## Seed database with sample data
-	@echo "$(BLUE)🌱 Seeding database...$(NC)"
-	docker-compose exec api python -m scripts.seed
-	@echo "$(GREEN)✅ Database seeded$(NC)"
 
 redis-cli: ## Open Redis CLI
 	docker-compose exec redis redis-cli
