@@ -1,60 +1,146 @@
-from fastapi import APIRouter, Depends, status
-from redis.asyncio import Redis
+"""
+Auth Router
 
-from app.core.database import get_database
-from app.core.redis import get_redis
-from app.schemas.auth_schema import (
-    AccessTokenResponse,
-    AuthResponse,
-    GoogleAuthRequest,
+Endpoints: register, login, logout, refresh token, current user
+"""
+
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from app.core.security import get_current_user
+from app.schemas import (
+    CurrentUserResponse,
+    HealthResponse,
     LoginRequest,
-    RefreshRequest,
+    LogoutRequest,
+    RefreshTokenRequest,
     RegisterRequest,
-    UserInfo,
+    TokenResponse,
 )
-from app.services import auth_service
+from app.services import (
+    AuthenticationService,
+    TokenService,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/google", response_model=AuthResponse)
-async def google_login(
-    payload: GoogleAuthRequest,
-    db=Depends(get_database),
-    redis: Redis = Depends(get_redis),
-) -> AuthResponse:
-    return await auth_service.google_login(payload, db, redis)
+@router.post("/health", response_model=HealthResponse)
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "ok",
+        "service": "boltchats-api",
+        "timestamp": datetime.now(timezone.utc),
+    }
 
 
-@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=TokenResponse)
 async def register(
     payload: RegisterRequest,
-    db=Depends(get_database),
-    redis: Redis = Depends(get_redis),
-) -> AuthResponse:
-    return await auth_service.register(payload, db, redis)
+    auth_service: AuthenticationService = Depends(),
+):
+    """Register new user and organization"""
+    try:
+        tokens = await auth_service.register(
+            email=payload.email,
+            password=payload.password,
+            full_name=payload.full_name,
+            organization_name=payload.organization_name,
+        )
+
+        return TokenResponse(
+            access_token=tokens["access_token"],
+            refresh_token=tokens["refresh_token"],
+            expires_in=tokens["expires_in"],
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
 
 
-@router.post("/login", response_model=AuthResponse)
+@router.post("/login", response_model=TokenResponse)
 async def login(
     payload: LoginRequest,
-    db=Depends(get_database),
-    redis: Redis = Depends(get_redis),
-) -> AuthResponse:
-    return await auth_service.login(payload, db, redis)
+    auth_service: AuthenticationService = Depends(),
+):
+    """Login user"""
+    try:
+        tokens = await auth_service.login(
+            email=payload.email,
+            password=payload.password,
+        )
+
+        return TokenResponse(
+            access_token=tokens["access_token"],
+            refresh_token=tokens["refresh_token"],
+            expires_in=tokens["expires_in"],
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+        )
 
 
-@router.post("/refresh", response_model=AccessTokenResponse)
-async def refresh(
-    payload: RefreshRequest,
-    redis: Redis = Depends(get_redis),
-) -> AccessTokenResponse:
-    return await auth_service.refresh(payload, redis)
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_token(
+    payload: RefreshTokenRequest,
+    token_service: TokenService = Depends(),
+):
+    """Refresh access token"""
+    try:
+        tokens = await token_service.refresh_token(payload.refresh_token)
+
+        return TokenResponse(
+            access_token=tokens["access_token"],
+            refresh_token=tokens["refresh_token"],
+            expires_in=tokens["expires_in"],
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        )
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/logout")
 async def logout(
-    payload: RefreshRequest,
-    redis: Redis = Depends(get_redis),
-) -> None:
-    await auth_service.logout(payload, redis)
+    payload: LogoutRequest,
+    token_service: TokenService = Depends(),
+):
+    """Logout user (revoke refresh token)"""
+    try:
+        if payload.refresh_token:
+            await token_service.revoke_token(payload.refresh_token)
+
+        return {"status": "logged_out"}
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.get("/me", response_model=CurrentUserResponse)
+async def get_current_user(
+    current_user = Depends(get_current_user),
+):
+    """Get current authenticated user info"""
+    return CurrentUserResponse(
+        user_id=current_user["user_id"],
+        email=current_user["email"],
+        full_name=current_user["full_name"],
+        organization_id=current_user["organization_id"],
+        workspace_id=current_user["workspace_id"],
+        member_id=current_user["member_id"],
+        roles=current_user["roles"],
+        permissions=current_user["permissions"],
+    )
