@@ -7,6 +7,14 @@ Endpoints for customers, conversations, messages, labels, drafts
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.security import get_current_user
+from app.dependencies import (
+    get_customer_service,
+    get_conversation_service,
+    get_message_service,
+    get_label_service,
+    get_draft_service,
+)
+
 from app.schemas import (
     ConversationCreateRequest,
     ConversationListResponse,
@@ -40,7 +48,7 @@ router = APIRouter(prefix="/conversations", tags=["conversations"])
 async def create_customer(
     payload: CustomerCreateRequest,
     current_user = Depends(get_current_user),
-    service: CustomerService = Depends(),
+    service: CustomerService = Depends(get_customer_service),
 ):
     """Create customer"""
     try:
@@ -57,7 +65,7 @@ async def create_customer(
 async def get_customer(
     customer_id: str,
     current_user = Depends(get_current_user),
-    service: CustomerService = Depends(),
+    service: CustomerService = Depends(get_customer_service),
 ):
     """Get customer by ID"""
     customer = await service.get_customer(
@@ -74,7 +82,7 @@ async def get_customer(
 async def create_conversation(
     payload: ConversationCreateRequest,
     current_user = Depends(get_current_user),
-    service: ConversationService = Depends(),
+    service: ConversationService = Depends(get_conversation_service),
 ):
     """Create conversation"""
     try:
@@ -92,7 +100,7 @@ async def list_conversations(
     current_user = Depends(get_current_user),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    service: ConversationService = Depends(),
+    service: ConversationService = Depends(get_conversation_service),
 ):
     """List conversations"""
     conversations = await service.list_conversations(
@@ -112,7 +120,7 @@ async def list_conversations(
 async def get_conversation(
     conversation_id: str,
     current_user = Depends(get_current_user),
-    service: ConversationService = Depends(),
+    service: ConversationService = Depends(get_conversation_service),
 ):
     """Get conversation by ID"""
     conversation = await service.get_conversation(
@@ -129,7 +137,7 @@ async def update_conversation(
     conversation_id: str,
     payload: ConversationUpdateRequest,
     current_user = Depends(get_current_user),
-    service: ConversationService = Depends(),
+    service: ConversationService = Depends(get_conversation_service),
 ):
     """Update conversation"""
     try:
@@ -149,7 +157,7 @@ async def send_message(
     conversation_id: str,
     payload: MessageCreateRequest,
     current_user = Depends(get_current_user),
-    service: MessageService = Depends(),
+    service: MessageService = Depends(get_message_service),
 ):
     """Send message in conversation"""
     try:
@@ -170,7 +178,7 @@ async def list_messages(
     current_user = Depends(get_current_user),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    service: MessageService = Depends(),
+    service: MessageService = Depends(get_message_service),
 ):
     """List messages in conversation"""
     messages = await service.list_messages(
@@ -193,7 +201,7 @@ async def edit_message(
     message_id: str,
     payload: MessageUpdateRequest,
     current_user = Depends(get_current_user),
-    service: MessageService = Depends(),
+    service: MessageService = Depends(get_message_service),
 ):
     """Edit message"""
     try:
@@ -215,7 +223,7 @@ async def delete_message(
     message_id: str,
     payload: MessageDeleteRequest = None,
     current_user = Depends(get_current_user),
-    service: MessageService = Depends(),
+    service: MessageService = Depends(get_message_service),
 ):
     """Delete message (soft delete)"""
     try:
@@ -237,7 +245,7 @@ async def add_label_to_conversation(
     conversation_id: str,
     payload: LabelCreateRequest,
     current_user = Depends(get_current_user),
-    service: LabelService = Depends(),
+    service: LabelService = Depends(get_label_service),
 ):
     """Add label to conversation"""
     try:
@@ -256,7 +264,7 @@ async def remove_label_from_conversation(
     conversation_id: str,
     label_id: str,
     current_user = Depends(get_current_user),
-    service: LabelService = Depends(),
+    service: LabelService = Depends(get_label_service),
 ):
     """Remove label from conversation"""
     try:
@@ -275,7 +283,7 @@ async def remove_label_from_conversation(
 async def get_draft(
     conversation_id: str,
     current_user = Depends(get_current_user),
-    service: DraftService = Depends(),
+    service: DraftService = Depends(get_draft_service),
 ):
     """Get draft for conversation"""
     draft = await service.get_draft(
@@ -293,7 +301,7 @@ async def save_draft(
     conversation_id: str,
     payload: dict,
     current_user = Depends(get_current_user),
-    service: DraftService = Depends(),
+    service: DraftService = Depends(get_draft_service),
 ):
     """Save draft (auto-save)"""
     try:
@@ -312,7 +320,7 @@ async def save_draft(
 async def delete_draft(
     conversation_id: str,
     current_user = Depends(get_current_user),
-    service: DraftService = Depends(),
+    service: DraftService = Depends(get_draft_service),
 ):
     """Delete draft"""
     try:

@@ -16,7 +16,7 @@ Organized into domains:
 - events/ - Event bus & workflow orchestration (Phase 6 ✅)
 """
 
-from .auth import AuthenticationService, PasswordService, TokenService
+# Re-export exceptions from base (break circular import cycle)
 from .base import (
     AppError,
     BaseService,
@@ -26,31 +26,6 @@ from .base import (
     UnauthorizedError,
     ValidationError,
 )
-from .conversation import (
-    ConversationService,
-    CustomerService,
-    DraftService,
-    LabelService,
-    MessageService,
-)
-from .events import EventBus, EventConsumer, WorkflowService
-from .integration import (
-    IntegrationService,
-    ProviderFactory,
-)
-from .notification import (
-    NotificationProviderFactory,
-    NotificationService,
-)
-from .organization import (
-    InvitationService,
-    MemberService,
-    OrganizationService,
-    RoleService,
-    TeamService,
-    WorkspaceService,
-)
-from .security import Permission, PermissionService
 
 __all__ = [
     # Base
@@ -61,34 +36,81 @@ __all__ = [
     "ValidationError",
     "UnauthorizedError",
     "ForbiddenError",
-    # Auth Services
-    "AuthenticationService",
-    "TokenService",
-    "PasswordService",
-    # Organization Services
-    "OrganizationService",
-    "WorkspaceService",
-    "MemberService",
-    "TeamService",
-    "RoleService",
-    "InvitationService",
-    # Conversation Services
-    "CustomerService",
-    "ConversationService",
-    "MessageService",
-    "DraftService",
-    "LabelService",
-    # Security Services
-    "PermissionService",
-    "Permission",
-    # Integration Services
-    "IntegrationService",
-    "ProviderFactory",
-    # Notification Services
-    "NotificationService",
-    "NotificationProviderFactory",
-    # Event & Workflow Services
-    "EventBus",
-    "EventConsumer",
-    "WorkflowService",
 ]
+
+
+# Lazy-load heavy service modules to break circular imports
+def __getattr__(name: str):
+    """Lazy load services on demand to break circular import cycles"""
+    
+    if name == "AuthenticationService":
+        from .auth import AuthenticationService
+        return AuthenticationService
+    elif name == "TokenService":
+        from .auth import TokenService
+        return TokenService
+    elif name == "PasswordService":
+        from .auth import PasswordService
+        return PasswordService
+    elif name == "OrganizationService":
+        from .organization import OrganizationService
+        return OrganizationService
+    elif name == "WorkspaceService":
+        from .organization import WorkspaceService
+        return WorkspaceService
+    elif name == "MemberService":
+        from .organization import MemberService
+        return MemberService
+    elif name == "TeamService":
+        from .organization import TeamService
+        return TeamService
+    elif name == "RoleService":
+        from .organization import RoleService
+        return RoleService
+    elif name == "InvitationService":
+        from .organization import InvitationService
+        return InvitationService
+    elif name == "CustomerService":
+        from .conversation import CustomerService
+        return CustomerService
+    elif name == "ConversationService":
+        from .conversation import ConversationService
+        return ConversationService
+    elif name == "MessageService":
+        from .conversation import MessageService
+        return MessageService
+    elif name == "DraftService":
+        from .conversation import DraftService
+        return DraftService
+    elif name == "LabelService":
+        from .conversation import LabelService
+        return LabelService
+    elif name == "PermissionService":
+        from .security import PermissionService
+        return PermissionService
+    elif name == "Permission":
+        from .security import Permission
+        return Permission
+    elif name == "IntegrationService":
+        from .integration import IntegrationService
+        return IntegrationService
+    elif name == "ProviderFactory":
+        from .integration import ProviderFactory
+        return ProviderFactory
+    elif name == "NotificationService":
+        from .notification import NotificationService
+        return NotificationService
+    elif name == "NotificationProviderFactory":
+        from .notification import NotificationProviderFactory
+        return NotificationProviderFactory
+    elif name == "EventBus":
+        from .events import EventBus
+        return EventBus
+    elif name == "EventConsumer":
+        from .events import EventConsumer
+        return EventConsumer
+    elif name == "WorkflowService":
+        from .events import WorkflowService
+        return WorkflowService
+    
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

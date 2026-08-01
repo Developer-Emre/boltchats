@@ -1,14 +1,8 @@
-"""
-Auth Router
-
-Endpoints: register, login, logout, refresh token, current user
-"""
-
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.security import get_current_user
+from app.dependencies import get_authentication_service, get_token_service
 from app.schemas import (
     CurrentUserResponse,
     HealthResponse,
@@ -39,7 +33,7 @@ async def health_check():
 @router.post("/register", response_model=TokenResponse)
 async def register(
     payload: RegisterRequest,
-    auth_service: AuthenticationService = Depends(),
+    auth_service: AuthenticationService = Depends(get_authentication_service),
 ):
     """Register new user and organization"""
     try:
@@ -66,7 +60,7 @@ async def register(
 @router.post("/login", response_model=TokenResponse)
 async def login(
     payload: LoginRequest,
-    auth_service: AuthenticationService = Depends(),
+    auth_service: AuthenticationService = Depends(get_authentication_service),
 ):
     """Login user"""
     try:
@@ -91,7 +85,7 @@ async def login(
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
     payload: RefreshTokenRequest,
-    token_service: TokenService = Depends(),
+    token_service: TokenService = Depends(get_token_service),
 ):
     """Refresh access token"""
     try:
@@ -113,7 +107,7 @@ async def refresh_token(
 @router.post("/logout")
 async def logout(
     payload: LogoutRequest,
-    token_service: TokenService = Depends(),
+    token_service: TokenService = Depends(get_token_service),
 ):
     """Logout user (revoke refresh token)"""
     try:

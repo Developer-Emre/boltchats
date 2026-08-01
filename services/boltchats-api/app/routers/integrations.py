@@ -7,6 +7,8 @@ Endpoints for provider integrations, webhooks, notifications
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.security import get_current_user
+from app.dependencies import get_integration_service
+
 from app.schemas import (
     IntegrationCreateRequest,
     IntegrationResponse,
@@ -29,7 +31,7 @@ router = APIRouter(prefix="/integrations", tags=["integrations"])
 async def create_integration(
     payload: IntegrationCreateRequest,
     current_user = Depends(get_current_user),
-    service: IntegrationService = Depends(),
+    service: IntegrationService = Depends(get_integration_service),
 ):
     """Create provider integration"""
     try:
@@ -45,7 +47,7 @@ async def create_integration(
 @router.get("", response_model=list[IntegrationResponse])
 async def list_integrations(
     current_user = Depends(get_current_user),
-    service: IntegrationService = Depends(),
+    service: IntegrationService = Depends(get_integration_service),
 ):
     """List integrations for organization"""
     integrations = await service.list_integrations(
@@ -58,7 +60,7 @@ async def list_integrations(
 async def get_integration(
     integration_id: str,
     current_user = Depends(get_current_user),
-    service: IntegrationService = Depends(),
+    service: IntegrationService = Depends(get_integration_service),
 ):
     """Get integration by ID"""
     integration = await service.get_integration(
@@ -75,7 +77,7 @@ async def update_integration(
     integration_id: str,
     payload: IntegrationUpdateRequest,
     current_user = Depends(get_current_user),
-    service: IntegrationService = Depends(),
+    service: IntegrationService = Depends(get_integration_service),
 ):
     """Update integration"""
     try:
@@ -93,7 +95,7 @@ async def update_integration(
 async def delete_integration(
     integration_id: str,
     current_user = Depends(get_current_user),
-    service: IntegrationService = Depends(),
+    service: IntegrationService = Depends(get_integration_service),
 ):
     """Delete integration"""
     try:
@@ -111,7 +113,7 @@ async def delete_integration(
 async def get_webhook_config(
     integration_id: str,
     current_user = Depends(get_current_user),
-    service: IntegrationService = Depends(),
+    service: IntegrationService = Depends(get_integration_service),
 ):
     """Get webhook configuration for integration"""
     config = await service.get_webhook_config(
@@ -130,7 +132,7 @@ async def handle_webhook(
     payload: dict,
     signature: str = None,
     timestamp: str = None,
-    service: IntegrationService = Depends(),
+    service: IntegrationService = Depends(get_integration_service),
 ):
     """
     Receive webhook from external provider.
