@@ -7,11 +7,11 @@ JWT token generation, validation, and refresh token management
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-import jwt
+from jose import jwt
 import redis.asyncio as redis
 
 from app.core.config import Settings
-from app.utils.sparkquark_constants import RedisKeys
+from app.utils.constants import REDIS_PREFIX_REFRESH_TOKEN
 
 
 class TokenService:

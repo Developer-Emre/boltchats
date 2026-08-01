@@ -235,6 +235,16 @@ class NotificationStatus(str, Enum):
     BOUNCED = "bounced"
 
 
+class EventStatus(str, Enum):
+    """Event processing status"""
+    PENDING = "pending"
+    PROCESSING = "processing"
+    PUBLISHED = "published"
+    FAILED = "failed"
+    RETRY = "retry"
+    DEAD_LETTER = "dead_letter"
+
+
 class Notification(BaseModel):
     """Notification to be delivered"""
 

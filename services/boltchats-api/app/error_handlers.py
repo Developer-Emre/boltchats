@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 import structlog
 
-from app.services import (
+from app.exceptions import (
     AppError,
     NotFoundError,
     ConflictError,
