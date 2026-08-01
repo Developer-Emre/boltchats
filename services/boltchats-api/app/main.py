@@ -9,19 +9,21 @@ from fastapi.responses import Response
 from app.core.config import settings
 from app.core.database import close_db, connect_db, get_database
 from app.core.redis import close_redis, connect_redis, get_redis
-from app.error_handlers import register_error_handlers
+# from app.error_handlers import register_error_handlers
 from app.middlewares.cors import register_cors
 from app.middlewares.logging import LoggingMiddleware, configure_structlog
 from app.middlewares.rate_limit import RateLimitMiddleware
 from app.middlewares.prometheus import PrometheusMiddleware
-from app.routers import (
-    auth_router,
-    conversations_router,
-    organizations_router,
-    integrations_router,
-)
-from app.utils.sparkquark_constants import SERVICE_NAME
+from app.utils.constants import SERVICE_NAME
 from app.database import DatabaseHealth
+
+# TODO: Uncomment once circular imports are resolved
+# from app.routers import (
+#     auth_router,
+#     conversations_router,
+#     organizations_router,
+#     integrations_router,
+# )
 
 configure_structlog()
 logger = structlog.get_logger()
@@ -52,14 +54,15 @@ app.add_middleware(PrometheusMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(LoggingMiddleware)
 
-# Register error handlers (converts AppError to HTTP responses)
-register_error_handlers(app)
+# TODO: Register error handlers once circular imports are resolved
+# register_error_handlers(app)
 
 # Mount routers under /api/v1
-app.include_router(auth_router, prefix="/api/v1")
-app.include_router(conversations_router, prefix="/api/v1")
-app.include_router(organizations_router, prefix="/api/v1")
-app.include_router(integrations_router, prefix="/api/v1")
+# TODO: Uncomment once circular imports are resolved
+# app.include_router(auth_router, prefix="/api/v1")
+# app.include_router(conversations_router, prefix="/api/v1")
+# app.include_router(organizations_router, prefix="/api/v1")
+# app.include_router(integrations_router, prefix="/api/v1")
 
 
 @app.get("/metrics")

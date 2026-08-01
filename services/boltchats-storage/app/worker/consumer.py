@@ -13,7 +13,7 @@ import json
 from datetime import datetime
 import structlog
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from aioredis import Redis
+import redis.asyncio as redis
 
 logger = structlog.get_logger()
 

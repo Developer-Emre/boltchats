@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 import structlog
 from fastapi import WebSocket
-from aioredis import Redis
+import redis.asyncio as redis
 
 logger = structlog.get_logger()
 
@@ -17,12 +17,12 @@ class ConnectionManager:
     - Broadcast capabilities
     """
 
-    def __init__(self, redis: Redis | None = None) -> None:
+    def __init__(self, redis_client: redis.Redis | None = None) -> None:
         # Local in-memory tracking
         # connection_id -> { websocket, user_id, rooms, connected_at, message_count }
         self._connections: dict[str, dict] = {}
         self._locks: dict[str, asyncio.Lock] = {}
-        self.redis = redis
+        self.redis = redis_client
 
     async def _get_lock(self, connection_id: str) -> asyncio.Lock:
         """Get or create a lock for a connection"""
