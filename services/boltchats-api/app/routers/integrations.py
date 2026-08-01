@@ -7,7 +7,7 @@ Endpoints for provider integrations, webhooks, notifications
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.security import get_current_user
-from app.dependencies import get_integration_service
+from app.dependencies import get_integration_service, get_notification_service
 
 from app.schemas import (
     IntegrationCreateRequest,
@@ -156,7 +156,7 @@ async def handle_webhook(
 async def send_notification(
     payload: NotificationCreateRequest,
     current_user = Depends(get_current_user),
-    service: NotificationService = Depends(),
+    service: NotificationService = Depends(get_notification_service),
 ):
     """Send notification to user"""
     try:
@@ -175,7 +175,7 @@ async def list_notifications(
     current_user = Depends(get_current_user),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    service: NotificationService = Depends(),
+    service: NotificationService = Depends(get_notification_service),
 ):
     """List notifications for current user"""
     notifications = await service.get_notifications(
@@ -195,7 +195,7 @@ async def list_notifications(
 async def mark_notification_read(
     notification_id: str,
     current_user = Depends(get_current_user),
-    service: NotificationService = Depends(),
+    service: NotificationService = Depends(get_notification_service),
 ):
     """Mark notification as read"""
     try:
@@ -209,7 +209,7 @@ async def mark_notification_read(
 async def mark_notification_clicked(
     notification_id: str,
     current_user = Depends(get_current_user),
-    service: NotificationService = Depends(),
+    service: NotificationService = Depends(get_notification_service),
 ):
     """Mark notification as clicked (action taken)"""
     try:

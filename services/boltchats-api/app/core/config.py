@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     # JWT
     secret_key: str = "change-me-to-a-strong-random-secret"
+    jwt_secret_key: str = "change-me-to-a-strong-random-secret"  # Alias for secret_key
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7

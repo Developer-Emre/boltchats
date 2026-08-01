@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from pydantic import BaseModel, Field
+from bson import ObjectId
 
 
 # ─── ROLES ────────────────────────────────────────────────────────────
@@ -98,7 +99,7 @@ class RoleDocument(BaseModel):
 class User(BaseModel):
     """User account (global, not org-specific)"""
 
-    id: str | None = Field(default=None, alias="_id")
+    id: str | None = Field(default_factory=lambda: str(ObjectId()), alias="_id")
     email: str  # Unique globally
     password_hash: str  # Bcrypt hash
     full_name: str
@@ -119,7 +120,7 @@ class User(BaseModel):
 class Organization(BaseModel):
     """Represents a SparkQuark organization (workspace equivalent)"""
 
-    id: str | None = Field(default=None, alias="_id")
+    id: str | None = Field(default_factory=lambda: str(ObjectId()), alias="_id")
     name: str
     slug: str  # unique, URL-safe
     description: str = ""
@@ -171,7 +172,7 @@ class MemberStatus(str, Enum):
 class Member(BaseModel):
     """Organization member"""
 
-    id: str | None = Field(default=None, alias="_id")
+    id: str | None = Field(default_factory=lambda: str(ObjectId()), alias="_id")
     organization_id: str
     user_id: str  # Reference to User collection
 

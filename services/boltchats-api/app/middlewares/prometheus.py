@@ -22,6 +22,7 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         
         start_time = time.time()
+        response = None
         
         try:
             # Calculate request size
@@ -59,8 +60,8 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
                 endpoint=endpoint
             ).observe(request_size)
             
-            # Response size is in response headers
-            if response.headers.get('content-length'):
+            # Response size is in response headers (only if response exists)
+            if response and response.headers.get('content-length'):
                 response_size = int(response.headers.get('content-length', 0))
                 http_response_size_bytes.labels(
                     method=method,

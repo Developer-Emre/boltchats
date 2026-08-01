@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.core.security import get_current_user as get_current_user_dep
 from app.dependencies import get_authentication_service, get_token_service
 from app.schemas import (
     CurrentUserResponse,
@@ -34,20 +35,33 @@ async def health_check():
 async def register(
     payload: RegisterRequest,
     auth_service: AuthenticationService = Depends(get_authentication_service),
+    token_service: TokenService = Depends(get_token_service),
 ):
-    """Register new user and organization"""
+    """Register new user"""
     try:
-        tokens = await auth_service.register(
+        # Register user
+        result = await auth_service.register(
             email=payload.email,
             password=payload.password,
             full_name=payload.full_name,
-            organization_name=payload.organization_name,
+            org_id="default",  # Temporary default org
+        )
+        
+        user_id = result["user_id"]
+        member_id = result["member_id"]
+        
+        # Create tokens
+        tokens = await token_service.create_tokens(
+            user_id=user_id,
+            org_id="default",
+            member_id=member_id,
+            roles=[],
         )
 
         return TokenResponse(
             access_token=tokens["access_token"],
-            refresh_token=tokens["refresh_token"],
-            expires_in=tokens["expires_in"],
+            refresh_token=tokens.get("refresh_token", ""),
+            expires_in=tokens.get("expires_in", 36000),
         )
 
     except Exception as e:
@@ -124,8 +138,8 @@ async def logout(
 
 
 @router.get("/me", response_model=CurrentUserResponse)
-async def get_current_user(
-    current_user = Depends(get_current_user),
+async def get_me(
+    current_user = Depends(get_current_user_dep),
 ):
     """Get current authenticated user info"""
     return CurrentUserResponse(

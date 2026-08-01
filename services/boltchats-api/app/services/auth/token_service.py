@@ -73,7 +73,7 @@ class TokenService:
         )
 
         # Store refresh token in Redis for revocation
-        refresh_key = f"{RedisKeys.REFRESH_TOKEN}:{user_id}"
+        refresh_key = f"{REDIS_PREFIX_REFRESH_TOKEN}:{user_id}"
         await self.redis.setex(
             refresh_key,
             7 * 24 * 3600,  # 7 days in seconds
@@ -143,7 +143,7 @@ class TokenService:
             
             # Check not revoked (should still be in Redis)
             user_id = payload.get("user_id")
-            refresh_key = f"{RedisKeys.REFRESH_TOKEN}:{user_id}"
+            refresh_key = f"{REDIS_PREFIX_REFRESH_TOKEN}:{user_id}"
             stored_token = await self.redis.get(refresh_key)
             
             if not stored_token or stored_token.decode() != token:
@@ -162,7 +162,7 @@ class TokenService:
         Args:
             user_id: User ID
         """
-        refresh_key = f"{RedisKeys.REFRESH_TOKEN}:{user_id}"
+        refresh_key = f"{REDIS_PREFIX_REFRESH_TOKEN}:{user_id}"
         await self.redis.delete(refresh_key)
 
     async def create_access_token_from_refresh(

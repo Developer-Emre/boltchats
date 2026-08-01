@@ -12,7 +12,9 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.repositories import MemberRoleRepository, RoleRepository
 from app.services.base import BaseService, ForbiddenError, NotFoundError
-from app.utils.sparkquark_constants import RedisKeys
+
+# Redis cache key prefix for permissions
+REDIS_PREFIX_PERMISSIONS = "permissions:"
 
 
 class Permission(str, Enum):
@@ -116,7 +118,7 @@ class PermissionService(BaseService):
             True if has permission, False otherwise
         """
         # Check cache first (Redis)
-        cache_key = f"{RedisKeys.PERMISSIONS}:{member_id}"
+        cache_key = f"{REDIS_PREFIX_PERMISSIONS}:{member_id}"
         cached_perms = await self.redis.get(cache_key)
 
         if cached_perms:
@@ -272,7 +274,7 @@ class PermissionService(BaseService):
         Args:
             member_id: Member ID
         """
-        cache_key = f"{RedisKeys.PERMISSIONS}:{member_id}"
+        cache_key = f"{REDIS_PREFIX_PERMISSIONS}:{member_id}"
         await self.redis.delete(cache_key)
 
         self.logger.info(
