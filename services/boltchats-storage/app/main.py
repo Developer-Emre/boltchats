@@ -5,7 +5,7 @@ from typing import AsyncGenerator
 import structlog
 from fastapi import FastAPI
 
-from app.consumer import consume
+from app.worker.consumer import consume
 from app.core.config import settings
 from app.core.database import close_db, connect_db, get_database
 from app.core.redis import close_redis, connect_redis, get_redis

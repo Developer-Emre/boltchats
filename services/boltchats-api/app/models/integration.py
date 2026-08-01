@@ -12,6 +12,28 @@ from pydantic import BaseModel, Field
 
 # ─── INTEGRATION ──────────────────────────────────────────────────────
 
+class ProviderEnum(str, Enum):
+    """Supported integration providers"""
+    INSTAGRAM = "instagram"
+    WHATSAPP = "whatsapp"
+    FACEBOOK = "facebook"
+    TWITTER = "twitter"
+    SLACK = "slack"
+    TELEGRAM = "telegram"
+    DISCORD = "discord"
+    EMAIL = "email"
+    SMS = "sms"
+    CUSTOM = "custom"
+
+
+class IntegrationStatus(str, Enum):
+    """Integration connection status"""
+    CONNECTED = "connected"
+    DISCONNECTED = "disconnected"
+    ERROR = "error"
+    PENDING = "pending"
+
+
 class OAuthData(BaseModel):
     """Embedded OAuth credentials (encrypted in storage)"""
 

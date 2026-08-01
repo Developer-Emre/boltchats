@@ -1,0 +1,173 @@
+groups:
+  - name: boltchats.rules
+    interval: 30s
+    rules:
+      # ─────────────────────────────────────────────────────────
+      # API Service Alerts
+      # ─────────────────────────────────────────────────────────
+      
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: "High error rate (5xx) on API"
+          description: "API is returning >1% 5xx errors over last 5 minutes"
+      
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, http_request_duration_seconds) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "High API latency"
+          description: "P95 latency is {{ $value | humanizeDuration }}"
+      
+      - alert: APIServiceDown
+        expr: up{job="boltchats-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: "API service is down"
+          description: "API service has been unavailable for >1 minute"
+      
+      # ─────────────────────────────────────────────────────────
+      # Database Alerts
+      # ─────────────────────────────────────────────────────────
+      
+      - alert: HighDatabaseLatency
+        expr: histogram_quantile(0.95, db_query_duration_seconds) > 0.5
+        for: 3m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "High database latency"
+          description: "P95 DB query time is {{ $value | humanizeDuration }}"
+      
+      - alert: DatabaseQueryErrors
+        expr: rate(db_query_errors_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "Database query errors detected"
+          description: "Error rate: {{ $value | humanizePercentage }}"
+      
+      - alert: MongoDBDown
+        expr: up{job="mongodb"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "MongoDB is down"
+          description: "MongoDB has been unavailable for >1 minute"
+      
+      # ─────────────────────────────────────────────────────────
+      # Redis Alerts
+      # ─────────────────────────────────────────────────────────
+      
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: cache
+        annotations:
+          summary: "Redis is down"
+          description: "Redis has been unavailable for >1 minute"
+      
+      - alert: HighRedisLatency
+        expr: histogram_quantile(0.95, redis_operation_duration_seconds) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+          service: cache
+        annotations:
+          summary: "High Redis latency"
+          description: "P95 Redis operation time is {{ $value | humanizeDuration }}"
+      
+      - alert: RedisOperationErrors
+        expr: rate(redis_operation_errors_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: cache
+        annotations:
+          summary: "Redis operation errors detected"
+          description: "Error rate: {{ $value | humanizePercentage }}"
+      
+      # ─────────────────────────────────────────────────────────
+      # Business Logic Alerts
+      # ─────────────────────────────────────────────────────────
+      
+      - alert: LowMessageThroughput
+        expr: rate(messages_sent_total[5m]) == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: messaging
+        annotations:
+          summary: "Low message throughput"
+          description: "No messages sent in the last 5 minutes"
+      
+      - alert: WebhookDeliveryFailures
+        expr: rate(webhook_deliveries_total{status="failed"}[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+          service: integration
+        annotations:
+          summary: "High webhook delivery failure rate"
+          description: "Failure rate: {{ $value | humanizePercentage }}"
+      
+      - alert: HighLoginFailures
+        expr: rate(login_attempts_total{status="failed"}[5m]) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+          service: auth
+        annotations:
+          summary: "High login failure rate"
+          description: "Failure rate: {{ $value | humanizePercentage }}"
+      
+      # ─────────────────────────────────────────────────────────
+      # System Alerts
+      # ─────────────────────────────────────────────────────────
+      
+      - alert: HighCPUUsage
+        expr: (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) by (instance)) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}%"
+      
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}%"
+      
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+          service: system
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space available: {{ $value }}%"

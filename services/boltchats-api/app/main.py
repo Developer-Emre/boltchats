@@ -3,6 +3,8 @@ from typing import AsyncGenerator
 
 import structlog
 from fastapi import FastAPI, Depends
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
 
 from app.core.config import settings
 from app.core.database import close_db, connect_db, get_database
@@ -11,6 +13,7 @@ from app.error_handlers import register_error_handlers
 from app.middlewares.cors import register_cors
 from app.middlewares.logging import LoggingMiddleware, configure_structlog
 from app.middlewares.rate_limit import RateLimitMiddleware
+from app.middlewares.prometheus import PrometheusMiddleware
 from app.routers import (
     auth_router,
     conversations_router,
@@ -43,8 +46,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Register middleware (CORS, logging, rate limiting)
+# Register middleware (CORS, logging, rate limiting, Prometheus)
 register_cors(app)
+app.add_middleware(PrometheusMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(LoggingMiddleware)
 
@@ -56,6 +60,12 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(conversations_router, prefix="/api/v1")
 app.include_router(organizations_router, prefix="/api/v1")
 app.include_router(integrations_router, prefix="/api/v1")
+
+
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint"""
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/health")
