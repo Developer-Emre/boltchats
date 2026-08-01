@@ -1,0 +1,122 @@
+name: Build Docker Images
+
+on:
+  pull_request:
+    paths:
+      - 'services/boltchats-api/**'
+      - 'services/boltchats-ws/**'
+      - 'services/boltchats-storage/**'
+      - 'services/boltchats-web/**'
+      - '.github/workflows/build.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/boltchats-api/**'
+      - 'services/boltchats-ws/**'
+      - 'services/boltchats-storage/**'
+      - 'services/boltchats-web/**'
+
+jobs:
+  build-api:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build API image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./services/boltchats-api
+          file: ./services/boltchats-api/Dockerfile
+          target: production
+          push: false
+          tags: boltchats-api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-ws:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build WebSocket image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./services/boltchats-ws
+          file: ./services/boltchats-ws/Dockerfile
+          target: production
+          push: false
+          tags: boltchats-ws:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-storage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Storage Worker image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./services/boltchats-storage
+          file: ./services/boltchats-storage/Dockerfile
+          target: production
+          push: false
+          tags: boltchats-storage:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-web:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Web Frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./services/boltchats-web
+          file: ./services/boltchats-web/Dockerfile
+          target: production
+          push: false
+          tags: boltchats-web:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          args: |
+            NEXT_PUBLIC_API_URL=https://api.example.com/api/v1
+            NEXT_PUBLIC_WS_URL=wss://ws.example.com
+
+  image-scan:
+    runs-on: ubuntu-latest
+    needs: [build-api]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: './services/boltchats-api'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'

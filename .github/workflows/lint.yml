@@ -1,0 +1,66 @@
+name: Lint & Format Check
+
+on:
+  pull_request:
+    paths:
+      - 'services/boltchats-api/**'
+      - '.github/workflows/lint.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/boltchats-api/**'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: ./services/boltchats-api
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff black isort
+
+      - name: Run Ruff (linter)
+        working-directory: ./services/boltchats-api
+        run: ruff check app/ tests/
+
+      - name: Check Black (formatter)
+        working-directory: ./services/boltchats-api
+        run: black --check app/ tests/
+
+      - name: Check isort (import sorting)
+        working-directory: ./services/boltchats-api
+        run: isort --check-only app/ tests/
+
+  type-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: ./services/boltchats-api
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyright
+
+      - name: Run Pyright (type checker)
+        working-directory: ./services/boltchats-api
+        run: pyright app/ --outputjson || true
