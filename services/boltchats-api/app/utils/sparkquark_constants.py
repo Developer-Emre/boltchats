@@ -25,7 +25,7 @@ class Collection(str, Enum):
     CONVERSATION_PARTICIPANTS = "conversation_participants"
     MESSAGES = "messages"
     LABELS = "labels"
-    CONVERSATION_DRAFTS = "conversation_drafts"
+    DRAFTS = "drafts"
 
     # Integration Domain
     INTEGRATIONS = "integrations"
@@ -36,6 +36,9 @@ class Collection(str, Enum):
 
     # Notifications
     NOTIFICATIONS = "notifications"
+
+    # Database Management
+    MIGRATION_HISTORY = "migration_history"
 
 
 class ErrorMessage(str, Enum):

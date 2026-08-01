@@ -2,10 +2,10 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 
 from app.core.config import settings
-from app.core.database import close_db, connect_db
+from app.core.database import close_db, connect_db, get_database
 from app.core.redis import close_redis, connect_redis, get_redis
 from app.error_handlers import register_error_handlers
 from app.middlewares.cors import register_cors
@@ -18,6 +18,7 @@ from app.routers import (
     integrations_router,
 )
 from app.utils.sparkquark_constants import SERVICE_NAME
+from app.database import DatabaseHealth
 
 configure_structlog()
 logger = structlog.get_logger()
@@ -58,6 +59,26 @@ app.include_router(integrations_router, prefix="/api/v1")
 
 
 @app.get("/health")
-async def health_check() -> dict[str, str]:
-    """Health check endpoint"""
-    return {"status": "ok", "service": SERVICE_NAME, "version": settings.app_version}
+async def health_check(db = Depends(get_database)) -> dict:
+    """Health check endpoint with database status"""
+    try:
+        # Quick database connectivity check
+        health_checker = DatabaseHealth(db)
+        db_check = await health_checker._check_connection()
+
+        return {
+            "status": "ok",
+            "service": SERVICE_NAME,
+            "version": settings.app_version,
+            "database": db_check["status"],
+        }
+    except Exception as e:
+        logger.error("health_check_failed", error=str(e))
+        return {
+            "status": "degraded",
+            "service": SERVICE_NAME,
+            "version": settings.app_version,
+            "database": "error",
+            "error": str(e),
+        }
+
