@@ -7,7 +7,6 @@ from starlette.requests import Request
 from jose import jwt, JWTError
 
 from app.core.config import settings
-from app.utils.constants import TokenType
 
 
 def hash_password(plain_password: str) -> str:
@@ -19,33 +18,24 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
 
 
-def create_access_token(subject: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.access_token_expire_minutes
-    )
-    payload = {"sub": subject, "type": TokenType.ACCESS, "exp": expire}
-    return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
-
-
-def create_refresh_token(subject: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(
-        days=settings.refresh_token_expire_days
-    )
-    payload = {"sub": subject, "type": TokenType.REFRESH, "exp": expire}
-    return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
-
-
 def decode_token(token: str) -> dict:
     """Decode and validate a JWT. Raises JWTError on failure."""
-    return jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+    try:
+        # TokenService uses jwt_secret_key, must match
+        return jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.algorithm])
+    except JWTError as e:
+        raise ValueError(f"Token validation failed: {e}")
 
 
 # Security schemes
 security = HTTPBearer()
 
 
-async def get_current_user(request: Request) -> str:
-    """Extract and validate current user from bearer token"""
+async def get_current_user(request: Request) -> dict:
+    """Extract and validate current user from bearer token.
+    
+    Returns dict with: user_id, org_id, member_id, roles, type, iat, exp
+    """
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         raise HTTPException(
@@ -59,15 +49,20 @@ async def get_current_user(request: Request) -> str:
             raise ValueError("Invalid auth scheme")
         
         payload = decode_token(token)
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token",
-            )
-        return user_id
-    except (ValueError, JWTError):
+        
+        # Verify it's an access token (not refresh)
+        if payload.get("type") != "access":
+            raise ValueError("Invalid token type")
+        
+        user_id = payload.get("user_id")
+        if not user_id:
+            raise ValueError("Invalid token: missing user_id")
+        
+        return payload  # Return full payload dict
+        
+    except (ValueError, JWTError) as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            detail="Invalid or expired token",
         )
+

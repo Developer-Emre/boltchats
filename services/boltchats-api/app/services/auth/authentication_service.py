@@ -126,7 +126,7 @@ class AuthenticationService(BaseService):
             raise UnauthorizedError("Invalid email or password")
 
         # Find member (should only be one active per user)
-        members = await self.members.find_by_user(None, user.id)
+        members = await self.members.find_many({"user_id": user.id})
         if not members:
             raise UnauthorizedError("User has no organization membership")
 
@@ -137,10 +137,10 @@ class AuthenticationService(BaseService):
         # Get roles for member
         from app.repositories import MemberRoleRepository
         role_repo = MemberRoleRepository(self.db)
-        member_roles = await role_repo.find({
+        member_roles = await role_repo.find_many({
             "member_id": member.id,
         })
-        role_ids = [mr.role_id for mr in member_roles]
+        role_ids = [mr.role_id for mr in (member_roles or [])]
 
         # Create tokens
         tokens = await self.token_service.create_tokens(
