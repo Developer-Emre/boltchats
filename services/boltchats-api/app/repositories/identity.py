@@ -157,7 +157,7 @@ class RoleRepository(BaseRepository[RoleDocument]):
     """Repository for role definitions"""
 
     def __init__(self, db: AsyncIOMotorDatabase):
-        super().__init__(db, Collection.MEMBER_ROLES.value, RoleDocument)
+        super().__init__(db, Collection.ROLES.value, RoleDocument)
 
     async def find_by_name(self, organization_id: str, name: str) -> RoleDocument | None:
         """Find role by name"""

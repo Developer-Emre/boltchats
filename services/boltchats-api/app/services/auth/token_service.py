@@ -12,6 +12,9 @@ import redis.asyncio as redis
 from app.core.config import Settings
 from app.utils.constants import REDIS_PREFIX_REFRESH_TOKEN
 
+# Email verification token prefix for Redis
+REDIS_PREFIX_EMAIL_VERIFICATION = "email_verification"
+
 
 class TokenService:
     """Handle JWT tokens and refresh token storage"""
@@ -216,3 +219,78 @@ class TokenService:
                 "access_token": access_token,
                 "expires_in": int(access_expires_delta.total_seconds()),
             }
+
+    async def create_email_verification_token(self, user_id: str, email: str) -> str:
+        """
+        Create email verification token (stored in Redis, not JWT).
+        
+        Args:
+            user_id: User ID
+            email: User email
+            
+        Returns:
+            Verification token
+        """
+        now = datetime.now(timezone.utc)
+        expires_delta = timedelta(minutes=self.settings.email_verification_token_expire_minutes)
+        
+        token_payload = {
+            "user_id": user_id,
+            "email": email,
+            "type": "email_verification",
+            "iat": now,
+            "exp": now + expires_delta,
+        }
+        
+        token = jwt.encode(
+            token_payload,
+            self.settings.jwt_secret_key,
+            algorithm=self.settings.algorithm,
+        )
+        
+        # Store in Redis for quick lookup
+        verify_key = f"{REDIS_PREFIX_EMAIL_VERIFICATION}:{user_id}"
+        ttl_seconds = int(expires_delta.total_seconds())
+        await self.redis.setex(verify_key, ttl_seconds, token)
+        
+        return token
+    
+    async def verify_email_token(self, token: str) -> dict:
+        """
+        Verify email verification token.
+        
+        Args:
+            token: Verification token
+            
+        Returns:
+            Token payload dict with user_id and email
+            
+        Raises:
+            jwt.InvalidTokenError: If invalid/expired
+        """
+        try:
+            payload = jwt.decode(
+                token,
+                self.settings.jwt_secret_key,
+                algorithms=[self.settings.algorithm],
+            )
+            
+            if payload.get("type") != "email_verification":
+                raise jwt.InvalidTokenError("Not an email verification token")
+            
+            return payload
+        except jwt.ExpiredSignatureError:
+            raise jwt.InvalidTokenError("Verification token expired")
+        except jwt.InvalidTokenError:
+            raise
+    
+    async def invalidate_email_verification_token(self, user_id: str) -> None:
+        """
+        Invalidate email verification token after successful verification.
+        
+        Args:
+            user_id: User ID
+        """
+        verify_key = f"{REDIS_PREFIX_EMAIL_VERIFICATION}:{user_id}"
+        await self.redis.delete(verify_key)
+

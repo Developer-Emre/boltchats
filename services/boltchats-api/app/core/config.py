@@ -38,5 +38,10 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 1000
     rate_limit_window_seconds: int = 60
 
+    # Email Verification
+    email_verification_token_expire_minutes: int = 24 * 60  # 24 hours
+    email_from: str = "noreply@sparkquark.com"
+    frontend_url: str = "http://localhost:3000"
+
 
 settings = Settings()

@@ -6,7 +6,10 @@ from .auth import (
     LoginRequest,
     RefreshTokenRequest,
     RegisterRequest,
+    RegisterResponse,
     TokenResponse,
+    VerifyEmailRequest,
+    VerifyEmailResponse,
 )
 from .conversation import (
     ConversationCreateRequest,
@@ -64,11 +67,14 @@ from .organization import (
 __all__ = [
     # Auth
     "RegisterRequest",
+    "RegisterResponse",
     "LoginRequest",
     "RefreshTokenRequest",
     "TokenResponse",
     "CurrentUserResponse",
     "HealthResponse",
+    "VerifyEmailRequest",
+    "VerifyEmailResponse",
     # Conversation
     "CustomerCreateRequest",
     "CustomerResponse",

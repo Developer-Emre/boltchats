@@ -270,3 +270,85 @@ class LabelService(BaseService):
         )
 
         return count
+
+    async def seed_default_labels(self, organization_id: str) -> dict[str, str]:
+        """
+        Seed default system labels for a new organization.
+        
+        Follows Register_flow.md Step 7.
+        
+        Labels created:
+        - New: Brand new conversation (Blue)
+        - Waiting: Waiting for customer response (Yellow)
+        - Urgent: Urgent/high priority (Red)
+        - VIP: Important customer (Purple)
+        - Spam: Spam/unwanted (Gray)
+        - Resolved: Conversation resolved (Green)
+        
+        Args:
+            organization_id: Organization ID
+            
+        Returns:
+            {
+                "new_label_id": "...",
+                "waiting_label_id": "...",
+                "urgent_label_id": "...",
+                "vip_label_id": "...",
+                "spam_label_id": "...",
+                "resolved_label_id": "..."
+            }
+        """
+        # Define default system labels with colors and icons
+        default_labels = [
+            {
+                "name": "New",
+                "color": "#3b82f6",  # Blue
+                "icon": "star",
+                "description": "New incoming conversation"
+            },
+            {
+                "name": "Waiting",
+                "color": "#fbbf24",  # Yellow/Amber
+                "icon": "clock",
+                "description": "Waiting for customer response"
+            },
+            {
+                "name": "Urgent",
+                "color": "#ef4444",  # Red
+                "icon": "alert-circle",
+                "description": "Urgent or high priority"
+            },
+            {
+                "name": "VIP",
+                "color": "#a855f7",  # Purple
+                "icon": "crown",
+                "description": "Important customer"
+            },
+            {
+                "name": "Spam",
+                "color": "#9ca3af",  # Gray
+                "icon": "ban",
+                "description": "Spam or unwanted messages"
+            },
+            {
+                "name": "Resolved",
+                "color": "#10b981",  # Green
+                "icon": "check-circle",
+                "description": "Conversation resolved"
+            },
+        ]
+
+        label_ids = {}
+
+        for label_config in default_labels:
+            label = Label(
+                organization_id=organization_id,
+                name=label_config["name"],
+                color=label_config["color"],
+                icon=label_config.get("icon"),
+                description=label_config["description"],
+            )
+            label_id = await self.labels.create(label)
+            label_ids[f"{label_config['name'].lower()}_label_id"] = label_id
+
+        return label_ids

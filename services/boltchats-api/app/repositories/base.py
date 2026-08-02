@@ -29,7 +29,7 @@ class BaseRepository(Generic[T]):
         Returns:
             Inserted document ID
         """
-        doc_dict = document.model_dump(by_alias=True, exclude_none=False)
+        doc_dict = document.model_dump(by_alias=True, exclude_none=True)
         result = await self.collection.insert_one(doc_dict)
         return str(result.inserted_id)
 
@@ -45,9 +45,22 @@ class BaseRepository(Generic[T]):
         from bson import ObjectId
 
         try:
+            # Try as ObjectId first (native MongoDB format)
             doc = await self.collection.find_one({"_id": ObjectId(document_id)})
             if doc:
+                # Convert ObjectId to string for models that expect string _id
+                if "_id" in doc and isinstance(doc["_id"], ObjectId):
+                    doc["_id"] = str(doc["_id"])
                 return self.model_class.model_validate(doc)
+            
+            # If not found, try as string (for models that store _id as string)
+            doc = await self.collection.find_one({"_id": document_id})
+            if doc:
+                # Convert ObjectId to string for models that expect string _id
+                if "_id" in doc and isinstance(doc["_id"], ObjectId):
+                    doc["_id"] = str(doc["_id"])
+                return self.model_class.model_validate(doc)
+            
             return None
         except Exception:
             return None
@@ -65,8 +78,18 @@ class BaseRepository(Generic[T]):
         from bson import ObjectId
 
         try:
+            # Try as ObjectId first (native MongoDB format)
             result = await self.collection.update_one(
                 {"_id": ObjectId(document_id)},
+                {"$set": update_data}
+            )
+            
+            if result.modified_count > 0:
+                return True
+            
+            # If not found/updated, try as string (for models that store _id as string)
+            result = await self.collection.update_one(
+                {"_id": document_id},
                 {"$set": update_data}
             )
             return result.modified_count > 0
@@ -86,17 +109,36 @@ class BaseRepository(Generic[T]):
         from datetime import datetime, timezone
 
         try:
-            # Try soft delete first (if model has deleted_at)
+            # Try as ObjectId first
             doc = await self.collection.find_one({"_id": ObjectId(document_id)})
+            if not doc:
+                # Try as string
+                doc = await self.collection.find_one({"_id": document_id})
+            
             if doc and "deleted_at" in doc:
+                # Try soft delete with ObjectId first
                 result = await self.collection.update_one(
                     {"_id": ObjectId(document_id)},
                     {"$set": {"deleted_at": datetime.now(timezone.utc)}}
                 )
+                
+                if result.modified_count > 0:
+                    return True
+                
+                # Try with string format
+                result = await self.collection.update_one(
+                    {"_id": document_id},
+                    {"$set": {"deleted_at": datetime.now(timezone.utc)}}
+                )
                 return result.modified_count > 0
             
-            # Otherwise hard delete
+            # Hard delete - try ObjectId first
             result = await self.collection.delete_one({"_id": ObjectId(document_id)})
+            if result.deleted_count > 0:
+                return True
+            
+            # Try with string format
+            result = await self.collection.delete_one({"_id": document_id})
             return result.deleted_count > 0
         except Exception:
             return False
@@ -110,8 +152,13 @@ class BaseRepository(Generic[T]):
         Returns:
             Model instance or None if not found
         """
+        from bson import ObjectId
+        
         doc = await self.collection.find_one(filter_dict)
         if doc:
+            # Convert ObjectId to string for models that expect string _id
+            if "_id" in doc and isinstance(doc["_id"], ObjectId):
+                doc["_id"] = str(doc["_id"])
             return self.model_class.model_validate(doc)
         return None
 
@@ -126,9 +173,19 @@ class BaseRepository(Generic[T]):
         Returns:
             List of model instances
         """
+        from bson import ObjectId
+        
         cursor = self.collection.find(filter_dict).skip(skip).limit(limit)
         docs = await cursor.to_list(length=limit)
-        return [self.model_class.model_validate(doc) for doc in docs]
+        
+        result = []
+        for doc in docs:
+            # Convert ObjectId to string for models that expect string _id
+            if "_id" in doc and isinstance(doc["_id"], ObjectId):
+                doc["_id"] = str(doc["_id"])
+            result.append(self.model_class.model_validate(doc))
+        
+        return result
 
     async def count(self, filter_dict: dict = None) -> int:
         """Count documents matching filter.

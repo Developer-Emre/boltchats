@@ -2,8 +2,51 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer
 from starlette.requests import Request
 from jose import jwt, JWTError
+from datetime import datetime, timedelta, timezone
 
 from app.core.config import settings
+
+
+def create_access_token(
+    user_id: str,
+    org_id: str = "test-org",
+    member_id: str = "test-member",
+    roles: list[str] | None = None,
+    expires_in_minutes: int | None = None,
+) -> str:
+    """Create a JWT access token for testing purposes.
+    
+    Args:
+        user_id: User ID
+        org_id: Organization ID (defaults to "test-org" for fixtures)
+        member_id: Member ID (defaults to "test-member" for fixtures)
+        roles: List of role IDs (defaults to empty list)
+        expires_in_minutes: Token expiry time (defaults to config value)
+        
+    Returns:
+        Encoded JWT token
+    """
+    if roles is None:
+        roles = []
+    if expires_in_minutes is None:
+        expires_in_minutes = settings.access_token_expire_minutes
+    
+    now = datetime.now(timezone.utc)
+    payload = {
+        "user_id": user_id,
+        "org_id": org_id,
+        "member_id": member_id,
+        "roles": roles,
+        "type": "access",
+        "iat": now,
+        "exp": now + timedelta(minutes=expires_in_minutes),
+    }
+    
+    return jwt.encode(
+        payload,
+        settings.jwt_secret_key,
+        algorithm=settings.algorithm,
+    )
 
 
 def decode_token(token: str) -> dict:

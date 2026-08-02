@@ -147,6 +147,7 @@ class Workspace(BaseModel):
     id: str | None = Field(default=None, alias="_id")
     organization_id: str
     name: str
+    slug: str  # URL-friendly identifier (e.g., "general", "support")
     description: str = ""
     
     # Workspace-specific settings

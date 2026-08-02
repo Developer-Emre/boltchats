@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.core.config import settings as app_settings
 from app.core.security import get_current_user as get_current_user_dep
 from app.dependencies import get_authentication_service, get_token_service
 from app.schemas import (
@@ -11,9 +13,15 @@ from app.schemas import (
     LoginRequest,
     RefreshTokenRequest,
     RegisterRequest,
+    RegisterResponse,
     TokenResponse,
+    VerifyEmailRequest,
+    VerifyEmailResponse,
 )
 from app.services.base import ConflictError
+
+if TYPE_CHECKING:
+    from app.services.auth import AuthenticationService, TokenService
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -29,7 +37,7 @@ async def health_check():
     }
 
 
-@router.post("/register", response_model=TokenResponse)
+@router.post("/register", response_model=RegisterResponse)
 async def register(
     payload: RegisterRequest,
     auth_service: "AuthenticationService" = Depends(get_authentication_service),
@@ -37,7 +45,7 @@ async def register(
 ):
     """Register new user with their own organization"""
     try:
-        # Register user and create organization
+        # Register user and create organization + workspace (Step 1 of Register_flow.md)
         result = await auth_service.register(
             email=payload.email,
             password=payload.password,
@@ -45,24 +53,31 @@ async def register(
             organization_name=payload.organization_name,
         )
         
-        # Create tokens
-        tokens = await token_service.create_tokens(
-            user_id=result["user_id"],
-            org_id=result["organization_id"],
-            member_id=result["member_id"],
-            roles=[],
+        user_id = result["user_id"]
+        
+        # Step 2: Generate email verification token
+        verification_token = await token_service.create_email_verification_token(
+            user_id=user_id,
+            email=payload.email,
         )
         
-        return TokenResponse(
-            access_token=tokens["access_token"],
-            refresh_token=tokens["refresh_token"],
-            expires_in=tokens["expires_in"],
-            user_id=result["user_id"],
-            member_id=result["member_id"],
-            organization_id=result["organization_id"],
+        # TODO: Send verification email to user
+        # email_service.send_verification_email(
+        #     to=payload.email,
+        #     name=payload.full_name,
+        #     token=verification_token,
+        #     frontend_url=app_settings.frontend_url
+        # )
+        
+        return RegisterResponse(
+            user_id=user_id,
+            email=payload.email,
+            verification_token=verification_token,  # For development only
+            verification_link=f"{app_settings.frontend_url}/verify-email?token={verification_token}",
         )
     
     except ConflictError as e:
+        await logger.aerror("register_failed", error=str(e), email=payload.email)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
@@ -72,6 +87,27 @@ async def register(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Registration failed",
+        )
+
+
+@router.post("/verify-email", response_model=VerifyEmailResponse)
+async def verify_email(
+    payload: VerifyEmailRequest,
+    auth_service: "AuthenticationService" = Depends(get_authentication_service),
+):
+    """Verify user email (Step 2 of Register_flow.md)"""
+    try:
+        result = await auth_service.verify_email(payload.token)
+        return VerifyEmailResponse(
+            user_id=result["user_id"],
+            email=result["email"],
+            verified=result["verified"],
+        )
+    except Exception as e:
+        await logger.aerror("verify_email_failed", error=str(e), error_type=type(e).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Email verification failed",
         )
 
 

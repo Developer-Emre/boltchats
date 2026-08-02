@@ -36,6 +36,7 @@ class TokenResponse(BaseModel):
     user_id: Optional[str] = None  # Added for register/login responses
     member_id: Optional[str] = None  # Added for register/login responses
     organization_id: Optional[str] = None  # Added for register/login responses
+    workspace_id: Optional[str] = None  # Added for register/login responses
 
 class CurrentUserResponse(BaseModel):
     """Current authenticated user info"""
@@ -55,3 +56,25 @@ class HealthResponse(BaseModel):
     service: str
     version: Optional[str] = None
     timestamp: datetime
+
+
+class RegisterResponse(BaseModel):
+    """Response after user registration (email verification required)"""
+    user_id: str
+    email: str
+    message: str = "Registration successful. Please verify your email."
+    verification_token: Optional[str] = None  # For development/testing
+    verification_link: Optional[str] = None  # For production (with frontend URL)
+
+
+class VerifyEmailRequest(BaseModel):
+    """Email verification request"""
+    token: str
+
+
+class VerifyEmailResponse(BaseModel):
+    """Email verification response"""
+    user_id: str
+    email: str
+    verified: bool
+    message: str = "Email verified successfully. You can now login."
