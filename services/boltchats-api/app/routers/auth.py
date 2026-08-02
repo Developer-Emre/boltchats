@@ -61,7 +61,10 @@ async def register(
         return TokenResponse(
             access_token=tokens["access_token"],
             refresh_token=tokens.get("refresh_token", ""),
-            expires_in=tokens.get("expires_in", 1800),  # Correct: from settings
+            expires_in=tokens.get("expires_in", 1800),
+            user_id=user_id,
+            member_id=member_id,
+            organization_id="default",
         )
 
     except Exception as e:
@@ -86,7 +89,10 @@ async def login(
         return TokenResponse(
             access_token=result["access_token"],
             refresh_token=result["refresh_token"],
-            expires_in=result.get("expires_in", 1800),  # Correct: from settings
+            expires_in=result.get("expires_in", 1800),
+            user_id=result.get("user_id"),
+            member_id=result.get("member_id"),
+            organization_id=result.get("org_id"),
         )
 
     except Exception as e:
@@ -100,19 +106,42 @@ async def login(
 async def refresh_token(
     payload: RefreshTokenRequest,
     token_service: TokenService = Depends(get_token_service),
+    auth_service: AuthenticationService = Depends(get_authentication_service),
 ):
     """Refresh access token"""
     try:
+        # Decode refresh token to get user_id without verification
+        # (we'll verify it in create_access_token_from_refresh)
+        from jose import jwt as jose_jwt
+        from app.core.config import settings
+        
+        # Get user_id from refresh token to fetch member_id
+        refresh_payload = jose_jwt.decode(
+            payload.refresh_token,
+            settings.jwt_secret_key,
+            algorithms=[settings.algorithm],
+        )
+        user_id = refresh_payload.get("user_id")
+        
+        # Fetch active member to get member_id
+        member = None
+        if user_id:
+            member = await auth_service.get_active_member(user_id)
+        
         # Create new access token from refresh token
         result = await token_service.create_access_token_from_refresh(
             refresh_token=payload.refresh_token,
             roles=[],  # TODO: restore roles from DB
+            member_id=member.id if member else "",
         )
 
         return TokenResponse(
             access_token=result["access_token"],
             refresh_token=payload.refresh_token,  # Reuse same refresh token
-            expires_in=result.get("expires_in", 1800),  # Correct: from settings
+            expires_in=result.get("expires_in", 1800),
+            user_id=user_id,
+            member_id=member.id if member else None,
+            organization_id=member.organization_id if member else None,
         )
 
     except Exception as e:

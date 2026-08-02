@@ -33,6 +33,9 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int  # seconds
+    user_id: Optional[str] = None  # Added for register/login responses
+    member_id: Optional[str] = None  # Added for register/login responses
+    organization_id: Optional[str] = None  # Added for register/login responses
 
 
 class LogoutRequest(BaseModel):

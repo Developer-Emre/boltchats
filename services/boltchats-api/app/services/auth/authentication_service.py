@@ -166,3 +166,22 @@ class AuthenticationService(BaseService):
             resource_id=user_id,
             resource_type="user",
         )
+
+    async def get_active_member(self, user_id: str) -> Optional[Member]:
+        """
+        Get active member for user (primary organization membership).
+        
+        Used to restore member_id during token refresh.
+        
+        Args:
+            user_id: User ID
+            
+        Returns:
+            First active Member or None
+        """
+        members = await self.members.find_many({"user_id": user_id})
+        if not members:
+            return None
+        
+        active_members = [m for m in members if m.status == MemberStatus.ACTIVE]
+        return active_members[0] if active_members else None

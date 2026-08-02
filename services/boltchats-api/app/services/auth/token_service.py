@@ -187,6 +187,7 @@ class TokenService:
         self,
         refresh_token: str,
         roles: list[str],
+        member_id: str = "",
     ) -> dict[str, str | int]:
         """
         Create new access token using refresh token.
@@ -194,6 +195,7 @@ class TokenService:
         Args:
             refresh_token: Valid refresh token
             roles: List of role IDs
+            member_id: Member ID (fetched from DB by caller)
             
         Returns:
             {
@@ -205,9 +207,6 @@ class TokenService:
         
         user_id = payload["user_id"]
         org_id = payload["org_id"]
-        # Refresh token doesn't have member_id, so we use empty string
-        # In a real scenario, you'd re-fetch this from DB
-        member_id = ""
         
         now = datetime.now(timezone.utc)
         access_expires_delta = timedelta(minutes=self.settings.access_token_expire_minutes)
