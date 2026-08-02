@@ -27,7 +27,7 @@ class TokenService:
         org_id: str,
         member_id: str,
         roles: list[str],
-    ) -> dict[str, str]:
+    ) -> dict[str, str | int]:
         """
         Create access token (short-lived) and refresh token (long-lived).
         
@@ -38,11 +38,19 @@ class TokenService:
             roles: List of role IDs
             
         Returns:
-            {"access_token": "...", "refresh_token": "..."}
+            {
+                "access_token": "...",
+                "refresh_token": "...",
+                "expires_in": 1800  # Access token lifetime in seconds
+            }
         """
         now = datetime.now(timezone.utc)
+        
+        # Calculate expiry times from settings
+        access_expires_delta = timedelta(minutes=self.settings.access_token_expire_minutes)
+        refresh_expires_delta = timedelta(days=self.settings.refresh_token_expire_days)
 
-        # Access token: 15 minutes
+        # Access token payload
         access_payload = {
             "user_id": user_id,
             "org_id": org_id,
@@ -50,39 +58,44 @@ class TokenService:
             "roles": roles,
             "type": "access",
             "iat": now,
-            "exp": now + timedelta(minutes=15),
+            "exp": now + access_expires_delta,
         }
         access_token = jwt.encode(
             access_payload,
             self.settings.jwt_secret_key,
-            algorithm="HS256",
+            algorithm=self.settings.algorithm,
         )
 
-        # Refresh token: 7 days
+        # Refresh token payload
         refresh_payload = {
             "user_id": user_id,
             "org_id": org_id,
             "type": "refresh",
             "iat": now,
-            "exp": now + timedelta(days=7),
+            "exp": now + refresh_expires_delta,
         }
         refresh_token = jwt.encode(
             refresh_payload,
             self.settings.jwt_secret_key,
-            algorithm="HS256",
+            algorithm=self.settings.algorithm,
         )
 
         # Store refresh token in Redis for revocation
         refresh_key = f"{REDIS_PREFIX_REFRESH_TOKEN}:{user_id}"
+        refresh_ttl_seconds = int(refresh_expires_delta.total_seconds())
         await self.redis.setex(
             refresh_key,
-            7 * 24 * 3600,  # 7 days in seconds
+            refresh_ttl_seconds,
             refresh_token,
         )
+
+        # Calculate expires_in in seconds for client
+        expires_in_seconds = int(access_expires_delta.total_seconds())
 
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
+            "expires_in": expires_in_seconds,
         }
 
     async def verify_access_token(self, token: str) -> dict:
@@ -102,7 +115,7 @@ class TokenService:
             payload = jwt.decode(
                 token,
                 self.settings.jwt_secret_key,
-                algorithms=["HS256"],
+                algorithms=[self.settings.algorithm],
             )
             
             # Check token type
@@ -134,7 +147,7 @@ class TokenService:
             payload = jwt.decode(
                 token,
                 self.settings.jwt_secret_key,
-                algorithms=["HS256"],
+                algorithms=[self.settings.algorithm],
             )
             
             # Check token type
@@ -146,7 +159,12 @@ class TokenService:
             refresh_key = f"{REDIS_PREFIX_REFRESH_TOKEN}:{user_id}"
             stored_token = await self.redis.get(refresh_key)
             
-            if not stored_token or stored_token.decode() != token:
+            if not stored_token:
+                raise jwt.InvalidTokenError("Token revoked")
+            
+            # Decode stored_token if it's bytes
+            stored_token_str = stored_token.decode() if isinstance(stored_token, bytes) else stored_token
+            if stored_token_str != token:
                 raise jwt.InvalidTokenError("Token revoked")
             
             return payload
@@ -169,7 +187,7 @@ class TokenService:
         self,
         refresh_token: str,
         roles: list[str],
-    ) -> str:
+    ) -> dict[str, str | int]:
         """
         Create new access token using refresh token.
         
@@ -178,15 +196,22 @@ class TokenService:
             roles: List of role IDs
             
         Returns:
-            New access token
+            {
+                "access_token": "...",
+                "expires_in": 1800  # Access token lifetime in seconds
+            }
         """
         payload = await self.verify_refresh_token(refresh_token)
         
         user_id = payload["user_id"]
         org_id = payload["org_id"]
-        member_id = payload.get("member_id")
+        # Refresh token doesn't have member_id, so we use empty string
+        # In a real scenario, you'd re-fetch this from DB
+        member_id = ""
         
         now = datetime.now(timezone.utc)
+        access_expires_delta = timedelta(minutes=self.settings.access_token_expire_minutes)
+        
         access_payload = {
             "user_id": user_id,
             "org_id": org_id,
@@ -194,13 +219,18 @@ class TokenService:
             "roles": roles,
             "type": "access",
             "iat": now,
-            "exp": now + timedelta(minutes=15),
+            "exp": now + access_expires_delta,
         }
         
         access_token = jwt.encode(
             access_payload,
             self.settings.jwt_secret_key,
-            algorithm="HS256",
+            algorithm=self.settings.algorithm,
         )
         
-        return access_token
+        expires_in_seconds = int(access_expires_delta.total_seconds())
+
+        return {
+            "access_token": access_token,
+            "expires_in": expires_in_seconds,
+        }

@@ -1,21 +1,9 @@
-from datetime import datetime, timedelta, timezone
-
-import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer
 from starlette.requests import Request
 from jose import jwt, JWTError
 
 from app.core.config import settings
-
-
-def hash_password(plain_password: str) -> str:
-    salt = bcrypt.gensalt()
-    return bcrypt.hashpw(plain_password.encode(), salt).decode()
-
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
 
 
 def decode_token(token: str) -> dict:
@@ -65,4 +53,3 @@ async def get_current_user(request: Request) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
         )
-

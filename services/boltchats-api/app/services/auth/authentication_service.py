@@ -97,25 +97,6 @@ class AuthenticationService(BaseService):
         email: str,
         password: str,
     ) -> dict:
-        """
-        Authenticate user and issue tokens.
-        
-        Args:
-            email: User email
-            password: Plaintext password
-            
-        Returns:
-            {
-                "user_id": "...",
-                "member_id": "...",
-                "org_id": "...",
-                "access_token": "...",
-                "refresh_token": "...",
-            }
-            
-        Raises:
-            UnauthorizedError: Invalid credentials
-        """
         # Find user
         user = await self.users.find_by_email(email)
         if not user:
@@ -125,13 +106,18 @@ class AuthenticationService(BaseService):
         if not self.password_service.verify_password(password, user.password_hash):
             raise UnauthorizedError("Invalid email or password")
 
-        # Find member (should only be one active per user)
+        # Find active members (user may be in multiple organizations)
         members = await self.members.find_many({"user_id": user.id})
         if not members:
             raise UnauthorizedError("User has no organization membership")
 
+        # Filter for active members only
+        active_members = [m for m in members if m.status == MemberStatus.ACTIVE]
+        if not active_members:
+            raise UnauthorizedError("No active organization membership")
+
         # Get primary member (first active)
-        member = members[0]
+        member = active_members[0]
         org_id = member.organization_id
 
         # Get roles for member
@@ -163,6 +149,7 @@ class AuthenticationService(BaseService):
             "org_id": org_id,
             "access_token": tokens["access_token"],
             "refresh_token": tokens["refresh_token"],
+            "expires_in": tokens.get("expires_in", 900),
         }
 
     async def logout(self, user_id: str) -> None:

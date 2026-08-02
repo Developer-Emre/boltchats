@@ -61,7 +61,7 @@ async def register(
         return TokenResponse(
             access_token=tokens["access_token"],
             refresh_token=tokens.get("refresh_token", ""),
-            expires_in=tokens.get("expires_in", 36000),
+            expires_in=tokens.get("expires_in", 1800),  # Correct: from settings
         )
 
     except Exception as e:
@@ -78,20 +78,18 @@ async def login(
 ):
     """Login user"""
     try:
-        tokens = await auth_service.login(
+        result = await auth_service.login(
             email=payload.email,
             password=payload.password,
         )
 
         return TokenResponse(
-            access_token=tokens["access_token"],
-            refresh_token=tokens["refresh_token"],
-            expires_in=tokens.get("expires_in", 3600),
+            access_token=result["access_token"],
+            refresh_token=result["refresh_token"],
+            expires_in=result.get("expires_in", 1800),  # Correct: from settings
         )
 
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
@@ -106,16 +104,15 @@ async def refresh_token(
     """Refresh access token"""
     try:
         # Create new access token from refresh token
-        # Note: roles should be preserved from original token or re-fetched
-        new_access_token = await token_service.create_access_token_from_refresh(
+        result = await token_service.create_access_token_from_refresh(
             refresh_token=payload.refresh_token,
             roles=[],  # TODO: restore roles from DB
         )
 
         return TokenResponse(
-            access_token=new_access_token,
+            access_token=result["access_token"],
             refresh_token=payload.refresh_token,  # Reuse same refresh token
-            expires_in=900,  # 15 minutes
+            expires_in=result.get("expires_in", 1800),  # Correct: from settings
         )
 
     except Exception as e:
@@ -128,12 +125,12 @@ async def refresh_token(
 @router.post("/logout")
 async def logout(
     current_user = Depends(get_current_user_dep),
-    token_service: TokenService = Depends(get_token_service),
+    auth_service: AuthenticationService = Depends(get_authentication_service),
 ):
     """Logout user (revoke refresh token)"""
     try:
         user_id = current_user["user_id"]
-        await token_service.revoke_refresh_token(user_id)
+        await auth_service.logout(user_id)  # This also logs the action
         return {"status": "logged_out"}
 
     except Exception as e:
