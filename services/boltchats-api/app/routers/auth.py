@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.security import get_current_user as get_current_user_dep
@@ -8,16 +9,13 @@ from app.schemas import (
     CurrentUserResponse,
     HealthResponse,
     LoginRequest,
-    LogoutRequest,
     RefreshTokenRequest,
     RegisterRequest,
     TokenResponse,
 )
-from app.services import (
-    AuthenticationService,
-    TokenService,
-)
+from app.services.base import ConflictError
 
+logger = structlog.get_logger()
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
@@ -34,50 +32,53 @@ async def health_check():
 @router.post("/register", response_model=TokenResponse)
 async def register(
     payload: RegisterRequest,
-    auth_service: AuthenticationService = Depends(get_authentication_service),
-    token_service: TokenService = Depends(get_token_service),
+    auth_service: "AuthenticationService" = Depends(get_authentication_service),
+    token_service: "TokenService" = Depends(get_token_service),
 ):
-    """Register new user"""
+    """Register new user with their own organization"""
     try:
-        # Register user
+        # Register user and create organization
         result = await auth_service.register(
             email=payload.email,
             password=payload.password,
             full_name=payload.full_name,
-            org_id="default",  # Temporary default org
+            organization_name=payload.organization_name,
         )
-        
-        user_id = result["user_id"]
-        member_id = result["member_id"]
         
         # Create tokens
         tokens = await token_service.create_tokens(
-            user_id=user_id,
-            org_id="default",
-            member_id=member_id,
+            user_id=result["user_id"],
+            org_id=result["organization_id"],
+            member_id=result["member_id"],
             roles=[],
         )
-
+        
         return TokenResponse(
             access_token=tokens["access_token"],
-            refresh_token=tokens.get("refresh_token", ""),
-            expires_in=tokens.get("expires_in", 1800),
-            user_id=user_id,
-            member_id=member_id,
-            organization_id="default",
+            refresh_token=tokens["refresh_token"],
+            expires_in=tokens["expires_in"],
+            user_id=result["user_id"],
+            member_id=result["member_id"],
+            organization_id=result["organization_id"],
         )
-
+    
+    except ConflictError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        )
     except Exception as e:
+        await logger.aerror("register_failed", error=str(e), email=payload.email)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail="Registration failed",
         )
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(
     payload: LoginRequest,
-    auth_service: AuthenticationService = Depends(get_authentication_service),
+    auth_service: "AuthenticationService" = Depends(get_authentication_service),
 ):
     """Login user"""
     try:
@@ -96,6 +97,7 @@ async def login(
         )
 
     except Exception as e:
+        await logger.aerror("login_failed", error=str(e), email=payload.email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
@@ -105,46 +107,22 @@ async def login(
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
     payload: RefreshTokenRequest,
-    token_service: TokenService = Depends(get_token_service),
-    auth_service: AuthenticationService = Depends(get_authentication_service),
+    auth_service: "AuthenticationService" = Depends(get_authentication_service),
 ):
     """Refresh access token"""
     try:
-        # Decode refresh token to get user_id without verification
-        # (we'll verify it in create_access_token_from_refresh)
-        from jose import jwt as jose_jwt
-        from app.core.config import settings
-        
-        # Get user_id from refresh token to fetch member_id
-        refresh_payload = jose_jwt.decode(
-            payload.refresh_token,
-            settings.jwt_secret_key,
-            algorithms=[settings.algorithm],
-        )
-        user_id = refresh_payload.get("user_id")
-        
-        # Fetch active member to get member_id
-        member = None
-        if user_id:
-            member = await auth_service.get_active_member(user_id)
-        
-        # Create new access token from refresh token
-        result = await token_service.create_access_token_from_refresh(
-            refresh_token=payload.refresh_token,
-            roles=[],  # TODO: restore roles from DB
-            member_id=member.id if member else "",
-        )
+        result = await auth_service.refresh_access_token(payload.refresh_token)
 
         return TokenResponse(
             access_token=result["access_token"],
-            refresh_token=payload.refresh_token,  # Reuse same refresh token
+            refresh_token=payload.refresh_token,
             expires_in=result.get("expires_in", 1800),
-            user_id=user_id,
-            member_id=member.id if member else None,
-            organization_id=member.organization_id if member else None,
+            member_id=result.get("member_id"),
+            organization_id=result.get("org_id"),
         )
 
     except Exception as e:
+        await logger.aerror("refresh_failed", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
@@ -154,15 +132,16 @@ async def refresh_token(
 @router.post("/logout")
 async def logout(
     current_user = Depends(get_current_user_dep),
-    auth_service: AuthenticationService = Depends(get_authentication_service),
+    auth_service: "AuthenticationService" = Depends(get_authentication_service),
 ):
     """Logout user (revoke refresh token)"""
     try:
         user_id = current_user["user_id"]
-        await auth_service.logout(user_id)  # This also logs the action
+        await auth_service.logout(user_id)
         return {"status": "logged_out"}
 
     except Exception as e:
+        await logger.aerror("logout_failed", error=str(e), user_id=current_user.get("user_id"))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Logout failed",

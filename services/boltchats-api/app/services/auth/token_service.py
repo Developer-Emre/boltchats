@@ -5,7 +5,6 @@ JWT token generation, validation, and refresh token management
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from jose import jwt
 import redis.asyncio as redis
@@ -183,53 +182,37 @@ class TokenService:
         refresh_key = f"{REDIS_PREFIX_REFRESH_TOKEN}:{user_id}"
         await self.redis.delete(refresh_key)
 
-    async def create_access_token_from_refresh(
-        self,
-        refresh_token: str,
-        roles: list[str],
-        member_id: str = "",
-    ) -> dict[str, str | int]:
-        """
-        Create new access token using refresh token.
-        
-        Args:
-            refresh_token: Valid refresh token
-            roles: List of role IDs
-            member_id: Member ID (fetched from DB by caller)
-            
-        Returns:
-            {
-                "access_token": "...",
-                "expires_in": 1800  # Access token lifetime in seconds
-            }
-        """
-        payload = await self.verify_refresh_token(refresh_token)
-        
-        user_id = payload["user_id"]
-        org_id = payload["org_id"]
-        
-        now = datetime.now(timezone.utc)
-        access_expires_delta = timedelta(minutes=self.settings.access_token_expire_minutes)
-        
-        access_payload = {
-            "user_id": user_id,
-            "org_id": org_id,
-            "member_id": member_id,
-            "roles": roles,
-            "type": "access",
-            "iat": now,
-            "exp": now + access_expires_delta,
-        }
-        
-        access_token = jwt.encode(
-            access_payload,
-            self.settings.jwt_secret_key,
-            algorithm=self.settings.algorithm,
-        )
-        
-        expires_in_seconds = int(access_expires_delta.total_seconds())
+    async def create_access_token(
+            self,   
+            user_id: str,
+            org_id: str,
+            member_id: str,
+            roles: list[str],
+        ) -> dict[str, str | int]:
+            """
+            Create a new access token from already-known identity data.
+            Used after refresh-token verification, once member_id/roles
+            have been re-fetched from the DB by the caller.
+            """
+            now = datetime.now(timezone.utc)
+            access_expires_delta = timedelta(minutes=self.settings.access_token_expire_minutes)
 
-        return {
-            "access_token": access_token,
-            "expires_in": expires_in_seconds,
-        }
+            access_payload = {
+                "user_id": user_id,
+                "org_id": org_id,
+                "member_id": member_id,
+                "roles": roles,
+                "type": "access",
+                "iat": now,
+                "exp": now + access_expires_delta,
+            }
+            access_token = jwt.encode(
+                access_payload,
+                self.settings.jwt_secret_key,
+                algorithm=self.settings.algorithm,
+            )
+
+            return {
+                "access_token": access_token,
+                "expires_in": int(access_expires_delta.total_seconds()),
+            }

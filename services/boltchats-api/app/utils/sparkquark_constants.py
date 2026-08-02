@@ -98,6 +98,7 @@ class ErrorMessage(str, Enum):
     INVALID_EMAIL = "Invalid email address"
     INVALID_URL = "Invalid URL"
     INVALID_PARAMETER = "Invalid parameter"
+    INVALID_ID = "Invalid object ID"
     MISSING_REQUIRED_FIELD = "Missing required field"
 
     # Server

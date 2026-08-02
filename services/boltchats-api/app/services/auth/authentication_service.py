@@ -10,9 +10,10 @@ from typing import Optional
 import redis.asyncio as redis
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from app.models.identity import Member, MemberStatus, User
-from app.repositories import MemberRepository, UserRepository
+from app.models.identity import Member, MemberStatus, Organization, User
+from app.repositories import MemberRepository, OrganizationRepository, UserRepository
 from app.services.base import BaseService, ConflictError, UnauthorizedError
+from app.utils.helpers import generate_slug
 
 from .password_service import PasswordService
 from .token_service import TokenService
@@ -30,6 +31,7 @@ class AuthenticationService(BaseService):
         super().__init__(db)
         self.users = UserRepository(db)
         self.members = MemberRepository(db)
+        self.organizations = OrganizationRepository(db)
         self.token_service = token_service
         self.password_service = PasswordService()
 
@@ -38,27 +40,40 @@ class AuthenticationService(BaseService):
         email: str,
         password: str,
         full_name: str,
-        org_id: str,
+        organization_name: str,
     ) -> dict:
         """
-        Register new user and create member in organization.
+        Register new user with their own organization (multi-tenant).
         
         Args:
             email: User email
             password: Plaintext password
             full_name: User full name
-            org_id: Organization to join
+            organization_name: Name for the new organization
             
         Returns:
-            {"user_id": "...", "member_id": "..."}
+            {
+                "user_id": "...",
+                "member_id": "...",
+                "organization_id": "...",
+                "organization_name": "..."
+            }
             
         Raises:
-            ConflictError: Email already exists
+            ConflictError: Email already exists or organization slug taken
         """
         # Check email not already registered
         existing = await self.users.find_by_email(email)
         if existing:
             raise ConflictError(f"Email {email} already registered")
+
+        # Generate slug from organization name
+        slug = generate_slug(organization_name)
+        
+        # Check slug not already taken
+        existing_org = await self.organizations.find_by_slug(slug)
+        if existing_org:
+            raise ConflictError(f"Organization '{organization_name}' already exists")
 
         # Hash password
         hashed_password = self.password_service.hash_password(password)
@@ -71,7 +86,15 @@ class AuthenticationService(BaseService):
         )
         user_id = await self.users.create(user)
 
-        # Create member in organization
+        # Create organization (user is owner)
+        organization = Organization(
+            name=organization_name,
+            slug=slug,
+            owner_id=user_id,
+        )
+        org_id = await self.organizations.create(organization)
+
+        # Create member in organization (owner as member)
         member = Member(
             organization_id=org_id,
             user_id=user_id,
@@ -84,12 +107,18 @@ class AuthenticationService(BaseService):
             "user_registered",
             resource_id=user_id,
             resource_type="user",
-            details={"email": email, "org_id": org_id},
+            details={
+                "email": email,
+                "organization_name": organization_name,
+                "org_id": org_id,
+            },
         )
 
         return {
             "user_id": user_id,
             "member_id": member_id,
+            "organization_id": org_id,
+            "organization_name": organization_name,
         }
 
     async def login(
@@ -185,3 +214,52 @@ class AuthenticationService(BaseService):
         
         active_members = [m for m in members if m.status == MemberStatus.ACTIVE]
         return active_members[0] if active_members else None
+
+    async def refresh_access_token(self, refresh_token: str) -> dict:
+        """
+        Verify refresh token, re-fetch current member/roles from DB,
+        and issue a fresh access token.
+
+        Returns:
+            {"access_token": "...", "expires_in": 1800}
+
+        Raises:
+            UnauthorizedError: Invalid/expired/revoked refresh token,
+                or no active membership.
+        """
+        from jose import jwt as jose_jwt  # for exception type only
+
+        try:
+            payload = await self.token_service.verify_refresh_token(refresh_token)
+        except jose_jwt.JWTError:
+            raise UnauthorizedError("Invalid refresh token")
+
+        user_id = payload["user_id"]
+
+        # Re-fetch active membership + roles from DB (don't trust stale token data)
+        members = await self.members.find_many({"user_id": user_id})
+        active_members = [m for m in members if m.status == MemberStatus.ACTIVE]
+        if not active_members:
+            raise UnauthorizedError("No active organization membership")
+
+        member = active_members[0]
+        org_id = member.organization_id
+
+        from app.repositories import MemberRoleRepository
+        role_repo = MemberRoleRepository(self.db)
+        member_roles = await role_repo.find_many({"member_id": member.id})
+        role_ids = [mr.role_id for mr in (member_roles or [])]
+
+        tokens = await self.token_service.create_access_token(
+            user_id=user_id,
+            org_id=org_id,
+            member_id=member.id,
+            roles=role_ids,
+        )
+
+        # Include member_id and org_id in response (for refresh endpoint)
+        return {
+            **tokens,
+            "member_id": member.id,
+            "org_id": org_id,
+        }

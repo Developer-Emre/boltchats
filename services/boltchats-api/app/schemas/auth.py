@@ -37,12 +37,6 @@ class TokenResponse(BaseModel):
     member_id: Optional[str] = None  # Added for register/login responses
     organization_id: Optional[str] = None  # Added for register/login responses
 
-
-class LogoutRequest(BaseModel):
-    """Logout request"""
-    refresh_token: Optional[str] = None
-
-
 class CurrentUserResponse(BaseModel):
     """Current authenticated user info"""
     user_id: str
