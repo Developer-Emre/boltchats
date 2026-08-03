@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.config import settings as app_settings
 from app.core.security import get_current_user as get_current_user_dep
-from app.dependencies import get_authentication_service, get_token_service
+from app.dependencies import get_authentication_service, get_token_service, get_email_service
 from app.schemas import (
     CurrentUserResponse,
     HealthResponse,
@@ -22,12 +22,13 @@ from app.services.base import ConflictError
 
 if TYPE_CHECKING:
     from app.services.auth import AuthenticationService, TokenService
+    from app.services.email_service import EmailService
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/health", response_model=HealthResponse)
+@router.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint"""
     return {
@@ -42,6 +43,7 @@ async def register(
     payload: RegisterRequest,
     auth_service: "AuthenticationService" = Depends(get_authentication_service),
     token_service: "TokenService" = Depends(get_token_service),
+    email_service: "EmailService" = Depends(get_email_service),
 ):
     """Register new user with their own organization"""
     try:
@@ -61,13 +63,13 @@ async def register(
             email=payload.email,
         )
         
-        # TODO: Send verification email to user
-        # email_service.send_verification_email(
-        #     to=payload.email,
-        #     name=payload.full_name,
-        #     token=verification_token,
-        #     frontend_url=app_settings.frontend_url
-        # )
+        # Step 3: Send verification email
+        await email_service.send_verification_email(
+            to=payload.email,
+            name=payload.full_name,
+            token=verification_token,
+            frontend_url=app_settings.frontend_url,
+        )
         
         return RegisterResponse(
             user_id=user_id,
@@ -145,13 +147,14 @@ async def refresh_token(
     payload: RefreshTokenRequest,
     auth_service: "AuthenticationService" = Depends(get_authentication_service),
 ):
-    """Refresh access token"""
+    """Refresh access token (with token rotation)"""
     try:
         result = await auth_service.refresh_access_token(payload.refresh_token)
 
+        # ⭐ Return NEW refresh token (rotation)
         return TokenResponse(
             access_token=result["access_token"],
-            refresh_token=payload.refresh_token,
+            refresh_token=result["refresh_token"],  # NEW token
             expires_in=result.get("expires_in", 1800),
             member_id=result.get("member_id"),
             organization_id=result.get("org_id"),
@@ -187,15 +190,33 @@ async def logout(
 @router.get("/me", response_model=CurrentUserResponse)
 async def get_me(
     current_user = Depends(get_current_user_dep),
+    auth_service: "AuthenticationService" = Depends(get_authentication_service),
 ):
     """Get current authenticated user info"""
-    return CurrentUserResponse(
-        user_id=current_user["user_id"],
-        email="",  # Not in token, would need DB lookup
-        full_name="",  # Not in token, would need DB lookup
-        organization_id=current_user["org_id"],
-        workspace_id="",  # Not in token
-        member_id=current_user["member_id"],
-        roles=current_user["roles"],
-        permissions=[],  # Would need permission service
-    )
+    try:
+        # Fetch user from DB to get email/full_name
+        user = await auth_service.users.read(current_user["user_id"])
+        
+        return CurrentUserResponse(
+            user_id=current_user["user_id"],
+            email=user.email if user else "",
+            full_name=user.full_name if user else "",
+            organization_id=current_user["org_id"],
+            workspace_id="",  # TODO: Add workspace_id to token when multi-workspace is implemented
+            member_id=current_user["member_id"],
+            roles=current_user["roles"],
+            permissions=[],  # TODO: Implement permission resolution from roles
+        )
+    except Exception as e:
+        await logger.aerror("get_me_failed", error=str(e), user_id=current_user.get("user_id"))
+        # Return partial info on error (don't fail the request)
+        return CurrentUserResponse(
+            user_id=current_user["user_id"],
+            email="",
+            full_name="",
+            organization_id=current_user["org_id"],
+            workspace_id="",
+            member_id=current_user["member_id"],
+            roles=current_user["roles"],
+            permissions=[],
+        )

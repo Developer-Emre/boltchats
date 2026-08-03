@@ -111,7 +111,7 @@ class TokenService:
             Token payload dict
             
         Raises:
-            jwt.InvalidTokenError: If invalid/expired
+            jwt.JWTError: If invalid/expired
         """
         try:
             payload = jwt.decode(
@@ -122,12 +122,12 @@ class TokenService:
             
             # Check token type
             if payload.get("type") != "access":
-                raise jwt.InvalidTokenError("Not an access token")
+                raise jwt.JWTError("Not an access token")
             
             return payload
         except jwt.ExpiredSignatureError:
-            raise jwt.InvalidTokenError("Token expired")
-        except jwt.InvalidTokenError:
+            raise jwt.JWTError("Token expired")
+        except jwt.JWTError:
             raise
 
     async def verify_refresh_token(self, token: str) -> dict:
@@ -143,7 +143,7 @@ class TokenService:
             Token payload dict
             
         Raises:
-            jwt.InvalidTokenError: If invalid/expired/revoked
+            jwt.JWTError: If invalid/expired/revoked
         """
         try:
             payload = jwt.decode(
@@ -154,7 +154,7 @@ class TokenService:
             
             # Check token type
             if payload.get("type") != "refresh":
-                raise jwt.InvalidTokenError("Not a refresh token")
+                raise jwt.JWTError("Not a refresh token")
             
             # Check not revoked (should still be in Redis)
             user_id = payload.get("user_id")
@@ -162,17 +162,17 @@ class TokenService:
             stored_token = await self.redis.get(refresh_key)
             
             if not stored_token:
-                raise jwt.InvalidTokenError("Token revoked")
+                raise jwt.JWTError("Token revoked")
             
             # Decode stored_token if it's bytes
             stored_token_str = stored_token.decode() if isinstance(stored_token, bytes) else stored_token
             if stored_token_str != token:
-                raise jwt.InvalidTokenError("Token revoked")
+                raise jwt.JWTError("Token revoked")
             
             return payload
         except jwt.ExpiredSignatureError:
-            raise jwt.InvalidTokenError("Token expired")
-        except jwt.InvalidTokenError:
+            raise jwt.JWTError("Token expired")
+        except jwt.JWTError:
             raise
 
     async def revoke_refresh_token(self, user_id: str) -> None:
@@ -266,7 +266,7 @@ class TokenService:
             Token payload dict with user_id and email
             
         Raises:
-            jwt.InvalidTokenError: If invalid/expired
+            jwt.JWTError: If invalid/expired
         """
         try:
             payload = jwt.decode(
@@ -276,12 +276,12 @@ class TokenService:
             )
             
             if payload.get("type") != "email_verification":
-                raise jwt.InvalidTokenError("Not an email verification token")
+                raise jwt.JWTError("Not an email verification token")
             
             return payload
         except jwt.ExpiredSignatureError:
-            raise jwt.InvalidTokenError("Verification token expired")
-        except jwt.InvalidTokenError:
+            raise jwt.JWTError("Verification token expired")
+        except jwt.JWTError:
             raise
     
     async def invalidate_email_verification_token(self, user_id: str) -> None:

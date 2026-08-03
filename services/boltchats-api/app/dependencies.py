@@ -33,6 +33,18 @@ async def get_token_service() -> AsyncGenerator:
     yield service
 
 
+async def get_email_service() -> AsyncGenerator:
+    """Get EmailService instance"""
+    from app.services.email_service import EmailService
+    from app.core.config import settings
+    
+    service = EmailService(
+        api_key=settings.sendgrid_api_key,
+        from_email=settings.email_from_address,
+    )
+    yield service
+
+
 async def get_customer_service() -> AsyncGenerator:
     """Get CustomerService instance"""
     from app.services.conversation import CustomerService

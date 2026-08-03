@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     # Email Verification
     email_verification_token_expire_minutes: int = 24 * 60  # 24 hours
     email_from: str = "noreply@sparkquark.com"
+    email_from_address: str = "noreply@sparkquark.com"  # SendGrid
+    sendgrid_api_key: str = ""  # Empty = dev mode (logs only)
     frontend_url: str = "http://localhost:3000"
 
 

@@ -22,6 +22,7 @@ from app.routers import (
 )
 from app.utils.constants import SERVICE_NAME
 from app.database import DatabaseHealth
+from app.repositories import OrganizationRepository, UserRepository
 
 configure_structlog()
 logger = structlog.get_logger()
@@ -47,10 +48,10 @@ app = FastAPI(
 )
 
 # Register middleware (CORS, logging, rate limiting, Prometheus)
-register_cors(app)
 app.add_middleware(PrometheusMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(LoggingMiddleware)
+register_cors(app)
 
 # Register error handlers (converts AppError to HTTP responses)
 register_error_handlers(app)
@@ -93,3 +94,23 @@ async def health_check(db = Depends(get_database)) -> dict:
             "error": str(e),
         }
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    await connect_db()
+    await connect_redis()
+    app.state.redis = get_redis()
+
+    # Ensure critical unique indexes exist (idempotent — safe to run every startup)
+    db = get_database()
+    org_repo = OrganizationRepository(db)
+    await org_repo.create_index("slug", unique=True)
+
+    user_repo = UserRepository(db)
+    await user_repo.create_index("email", unique=True)  # aynı race condition email için de geçerli
+
+    logger.info("startup_complete", service=SERVICE_NAME)
+    yield
+    await close_db()
+    await close_redis()
+    logger.info("shutdown_complete", service=SERVICE_NAME)

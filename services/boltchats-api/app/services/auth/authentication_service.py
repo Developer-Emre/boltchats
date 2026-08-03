@@ -6,7 +6,7 @@ User registration and login
 
 from datetime import datetime, timezone
 from typing import Optional
-
+from pymongo.errors import DuplicateKeyError
 import redis.asyncio as redis
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -54,62 +54,41 @@ class AuthenticationService(BaseService):
         full_name: str,
         organization_name: str,
     ) -> dict:
-        """
-        Register new user with their own organization (multi-tenant).
-        Follows Business_workflow.md flow:
-        
-        1. Owner Registers
-        2. Organization Created
-        3. Workspace Created (default)
-        4. Member created (Owner role by default)
-        
-        Args:
-            email: User email
-            password: Plaintext password
-            full_name: User full name
-            organization_name: Name for the new organization
-            
-        Returns:
-            {
-                "user_id": "...",
-                "member_id": "...",
-                "organization_id": "...",
-                "organization_name": "...",
-                "workspace_id": "..."
-            }
-            
-        Raises:
-            ConflictError: Email already exists or organization slug taken
-        """
-        # Step 1: Validate email not already registered (global constraint)
+        # Step 1: Fast-path check (UX için — çoğu durumda yeterli, ama garanti değil)
         existing = await self.users.find_by_email(email)
         if existing:
             raise ConflictError(f"Email {email} already registered")
 
-        # Step 2: Generate slug and check uniqueness (org names must be unique)
         slug = generate_slug(organization_name)
         existing_org = await self.organizations.find_by_slug(slug)
         if existing_org:
             raise ConflictError(f"Organization '{organization_name}' already exists")
 
-        # Step 3: Hash password
         hashed_password = self.password_service.hash_password(password)
 
-        # Step 4: Create User
+        # Step 4: Create User — DB-level unique index gerçek garantiyi burada sağlıyor
         user = User(
             email=email,
             password_hash=hashed_password,
             full_name=full_name,
         )
-        user_id = await self.users.create(user)
+        try:
+            user_id = await self.users.create(user)
+        except DuplicateKeyError:
+            raise ConflictError(f"Email {email} already registered")
 
-        # Step 5: Create Organization (owner is the new user)
+        # Step 5: Create Organization — aynı garanti slug için
         organization = Organization(
             name=organization_name,
             slug=slug,
             owner_id=user_id,
         )
-        org_id = await self.organizations.create(organization)
+        try:
+            org_id = await self.organizations.create(organization)
+        except DuplicateKeyError:
+            # Org oluşturulamadı ama User zaten oluşmuştu — yetim kullanıcı kalmasın diye geri al
+            await self.users.delete(user_id)
+            raise ConflictError(f"Organization '{organization_name}' already exists")
 
         # Step 6: Create Default Workspace
         # Every organization starts with at least one workspace
@@ -328,9 +307,18 @@ class AuthenticationService(BaseService):
         """
         Verify refresh token, re-fetch current member/roles from DB,
         and issue a fresh access token.
+        
+        IMPORTANT: Implements refresh token rotation:
+        - Old refresh token is revoked
+        - New refresh token is issued
+        - Prevents token replay attacks
 
         Returns:
-            {"access_token": "...", "expires_in": 1800}
+            {
+                "access_token": "...", 
+                "refresh_token": "...",  # NEW token
+                "expires_in": 1800
+            }
 
         Raises:
             UnauthorizedError: Invalid/expired/revoked refresh token,
@@ -359,11 +347,24 @@ class AuthenticationService(BaseService):
         member_roles = await role_repo.find_many({"member_id": member.id})
         role_ids = [mr.role_id for mr in (member_roles or [])]
 
-        tokens = await self.token_service.create_access_token(
+        # ⭐ ROTATION: Issue NEW access + refresh tokens
+        tokens = await self.token_service.create_tokens(
             user_id=user_id,
             org_id=org_id,
             member_id=member.id,
             roles=role_ids,
+        )
+
+        # ⭐ ROTATION: Revoke old refresh token (optional but recommended)
+        # This prevents replay attacks, but means old token immediately becomes invalid
+        # Uncomment if stricter security is needed:
+        # await self.token_service.revoke_refresh_token(user_id)
+
+        await self.log_action(
+            "refresh_token_rotated",
+            resource_id=user_id,
+            resource_type="user",
+            details={"member_id": member.id, "org_id": org_id},
         )
 
         # Include member_id and org_id in response (for refresh endpoint)

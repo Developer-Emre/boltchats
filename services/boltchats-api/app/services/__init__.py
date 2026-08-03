@@ -52,6 +52,9 @@ def __getattr__(name: str):
     elif name == "PasswordService":
         from .auth import PasswordService
         return PasswordService
+    elif name == "EmailService":
+        from .email_service import EmailService
+        return EmailService
     elif name == "OrganizationService":
         from .organization import OrganizationService
         return OrganizationService
