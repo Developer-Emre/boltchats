@@ -33,6 +33,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await connect_db()
     await connect_redis()
     app.state.redis = get_redis()
+
+    # Ensure critical unique indexes exist (idempotent — safe to run every startup)
+    db = get_database()
+    org_repo = OrganizationRepository(db)
+    await org_repo.create_index("slug", unique=True)
+
+    user_repo = UserRepository(db)
+    await user_repo.create_index("email", unique=True)
+
     logger.info("startup_complete", service=SERVICE_NAME)
     yield
     await close_db()
@@ -63,7 +72,6 @@ app.include_router(conversations_router, prefix="/api/v1")
 # app.include_router(organizations_router, prefix="/api/v1")
 app.include_router(integrations_router, prefix="/api/v1")
 
-
 @app.get("/metrics")
 async def metrics():
     """Prometheus metrics endpoint"""
@@ -93,24 +101,3 @@ async def health_check(db = Depends(get_database)) -> dict:
             "database": "error",
             "error": str(e),
         }
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    await connect_db()
-    await connect_redis()
-    app.state.redis = get_redis()
-
-    # Ensure critical unique indexes exist (idempotent — safe to run every startup)
-    db = get_database()
-    org_repo = OrganizationRepository(db)
-    await org_repo.create_index("slug", unique=True)
-
-    user_repo = UserRepository(db)
-    await user_repo.create_index("email", unique=True)  # aynı race condition email için de geçerli
-
-    logger.info("startup_complete", service=SERVICE_NAME)
-    yield
-    await close_db()
-    await close_redis()
-    logger.info("shutdown_complete", service=SERVICE_NAME)

@@ -63,18 +63,29 @@ async def register(
             email=payload.email,
         )
         
-        # Step 3: Send verification email
-        await email_service.send_verification_email(
-            to=payload.email,
-            name=payload.full_name,
-            token=verification_token,
-            frontend_url=app_settings.frontend_url,
-        )
+        # Step 3: Send verification email (failures here should NOT break registration)
+        try:
+            await email_service.send_verification_email(
+                to=payload.email,
+                name=payload.full_name,
+                token=verification_token,
+                frontend_url=app_settings.frontend_url,
+            )
+        except Exception as e:
+            # Email failure is non-critical — user+org already created
+            # Log it but don't fail the request
+            await logger.aerror(
+                "verification_email_send_failed",
+                error=str(e),
+                user_id=user_id,
+                email=payload.email,
+            )
+            # Verification link is in response — user can verify manually or resend later
         
         return RegisterResponse(
             user_id=user_id,
             email=payload.email,
-            verification_token=verification_token,  # For development only
+            verification_token=verification_token if app_settings.environment != "production" else None,
             verification_link=f"{app_settings.frontend_url}/verify-email?token={verification_token}",
         )
     
